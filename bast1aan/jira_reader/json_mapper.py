@@ -3,7 +3,7 @@ from collections import defaultdict
 from dataclasses import is_dataclass, Field, fields
 from datetime import datetime
 from functools import cached_property
-from typing import TypeVar, Generic, Mapping, Any, get_args, get_origin, ClassVar, get_type_hints
+from typing import TypeVar, Generic, Mapping, Any, get_args, get_origin, ClassVar, get_type_hints, NamedTuple
 from typing_extensions import Self
 import dateutil.parser
 
@@ -24,7 +24,6 @@ class _FieldWrapper(Generic[T]):
     @classmethod
     def for_cls(cls, cls_: type[T]) -> Self:
         if cls_ not in cls._instances:
-            _fix_field_types(cls_)
             cls._instances[cls_] = cls(cls_)
         return cls._instances[cls_]
 
@@ -48,8 +47,21 @@ def into(cls: type[T]) -> T:
 
 
 class JsonMapper(Generic[T]):
-    mapping: dict
+    class _MappingItem(NamedTuple):
+        cls: type
+        field: Field
+
+    @classmethod
+    def _mapping_item(cls, cls_: type | str, field: Field) -> _MappingItem:
+        # constructor for _MappingItem (NamedTuples can't have an __init__)
+        if isinstance(field.type, str):
+            # convert deferred type hint strings to real types for this dataclass
+            _fix_field_types(cls_)
+        return cls._MappingItem(cls_, field)
+
     _init_kwargs = dict[type, dict[str, Any]]
+
+    mapping: dict
 
     def __init__(self, mapping: dict):
         self.mapping = mapping
@@ -80,15 +92,16 @@ class JsonMapper(Generic[T]):
             result_objects = []
             if len(mapping) == 1:
                 # we got a primitive type
-                list_type = mapping[0][1].type.__args__[0]
-                result_objects = [self._factory(list_type, item) for item in input]
+                mapping_item = self._mapping_item(*mapping[0])
+                type_in_list = get_args(mapping_item.field.type)[0]
+                result_objects = [self._factory(type_in_list, item) for item in input]
             elif len(mapping) == 2:
                 # we got a compound type
-
-                list_type = mapping[1][1].type.__args__[0]
+                mapping_item = self._mapping_item(*mapping[1])
+                type_in_list = get_args(mapping_item.field.type)[0]
                 for item in input:
                     self._walk(mapping[0], item)
-                    result_objects.append(self._build(list_type))
+                    result_objects.append(self._build(type_in_list))
             else:
                 raise DecodingError('Wrong list size')
             self._walk(mapping[1], result_objects)
@@ -99,19 +112,18 @@ class JsonMapper(Generic[T]):
                 self._walk(v, input.get(k))
         else:
             # we got a field
-            cls: type
-            field: Field
-            cls, field = mapping
+            mapping_item = self._mapping_item(*mapping)
             try:
-                self._init_kwargs[cls][field.name] = self._factory(field.type, input)
+                self._init_kwargs[mapping_item.cls][mapping_item.field.name] = self._factory(mapping_item.field.type, input)
             except NoneTypeError as e:
-                raise NoneTypeError(f'{field.name} of {cls} must not be None') from e
+                raise NoneTypeError(f'{mapping_item.field.name} of {mapping_item.cls} must not be None') from e
             return
 
     def __call__(self, input: object) -> T:
         self._walk(self.mapping, input)
         cls = next(iter(self._init_kwargs.keys()))
         return self._build(cls)
+
 
 class DecodingError(Exception): pass
 
