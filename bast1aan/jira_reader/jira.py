@@ -13,28 +13,7 @@ class Mapper(Protocol[ResponseType]):
     def __call__(self, input: object) -> ResponseType:
         raise NotImplementedError
 
-# @dataclass
-# class ResponseParam:
-#     cls: ResponseType
-#     param: str
-#     value: Any = None
-#     value_factory: Callable = None
-#
-#
-# Mapping = dict[str, ResponseParam] | list[ResponseParam]
-#
-# class InputMapper(Generic[ResponseType]):
-#     def __init__(self, mapping: Mapping | dict[str, Mapping] | list[str, Mapping]):
-#         self.mapping = mapping
-#     def __call__(self, input: object) -> ResponseType:
-#         ...
-
-
-# class ResponseBuilder(Protocol[ResponseType]):
-#     def __call__(self, response: ResponseType, value: Any) -> ResponseType:
-#        ...
-
-class Action(Generic[ResponseType]):
+class Action(Generic[ResponseType], abc.ABC):
     URL: ClassVar[str]
     mapper: ClassVar[Mapper[ResponseType] | None] = None
 
@@ -60,7 +39,6 @@ class RequestTicketHistoryResponse:
     items: list[Item]
 
 
-
 @dataclass
 class RequestTicketHistory(Action[RequestTicketHistoryResponse]):
     URL = '/rest/api/3/issue/{issue}?expand=renderedFields,changelog'
@@ -82,15 +60,3 @@ class RequestTicketHistory(Action[RequestTicketHistoryResponse]):
     })
     issue: str
 
-# changelog {
-# 	histories {
-# 		items: list[
-# 		{field, fromString, toString}
-# 		]
-# 		author: {
-# 		emailAddress,
-# 		displayName,
-# 		}
-# 		created: datetime
-# 	}
-# }
