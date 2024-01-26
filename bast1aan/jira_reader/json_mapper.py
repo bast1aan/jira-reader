@@ -2,7 +2,7 @@ import types
 from collections import defaultdict
 from dataclasses import is_dataclass, Field, fields
 from datetime import datetime
-from functools import cached_property, reduce
+from functools import cached_property
 from typing import TypeVar, Generic, Mapping, Any, get_args, get_origin
 import dateutil.parser
 
@@ -39,12 +39,8 @@ class JsonMapper(Generic[T]):
         self._init_kwargs = defaultdict(dict)
 
     def _build(self, cls: type) -> object:
-        try:
-            return cls(**self._init_kwargs.pop(cls))
-        except KeyError:
-            print(self._init_kwargs)
-            print(cls)
-            raise
+        return cls(**self._init_kwargs.pop(cls))
+
     def _factory(self, t: type, input: Any) -> Any:
         if t is datetime:
             return dateutil.parser.parse(input)
@@ -71,16 +67,8 @@ class JsonMapper(Generic[T]):
                 result_objects = [self._factory(list_type, item) for item in input]
             elif len(mapping) == 2:
                 # we got a compound type
-                import pprint
 
-                try:
-
-                    list_type = mapping[1][1].type.__args__[0]
-                    print('WERKT')
-                except AttributeError:
-                    pprint.pprint(mapping[1][1].type)
-                    pprint.pprint(eval(mapping[1][1].type, globals(), locals()))
-                    raise
+                list_type = mapping[1][1].type.__args__[0]
                 for item in input:
                     self._walk(mapping[0], item)
                     result_objects.append(self._build(list_type))
@@ -96,12 +84,7 @@ class JsonMapper(Generic[T]):
             # we got a field
             cls: type
             field: Field
-            from pprint import pprint
-            try:
-                cls, field = mapping
-            except TypeError:
-                pprint(mapping)
-                raise
+            cls, field = mapping
             try:
                 self._init_kwargs[cls][field.name] = self._factory(field.type, input)
             except NoneTypeError as e:

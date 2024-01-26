@@ -25,7 +25,6 @@ class TestRequestTicketHistory(unittest.TestCase):
         fix_field_types(RequestTicketHistoryResponse.Item)
         fix_field_types(RequestTicketHistoryResponse)
 
-        print(dataclasses.fields(RequestTicketHistoryResponse.Item))
         action = RequestTicketHistory(issue='ABC-123')
 
         result = action.get_response(input)
