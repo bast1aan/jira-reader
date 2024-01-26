@@ -24,39 +24,41 @@ class Action(Generic[ResponseType], abc.ABC):
         else:
             raise NotImplementedError
 
+
 @dataclass
-class RequestTicketHistoryResponse:
+class RequestTicketHistory(Action["RequestTicketHistory.Response"]):
     @dataclass
-    class Item:
+    class Response:
         @dataclass
-        class Action:
-            field: str
-            toString: str
-            fromString: str | None
-        byEmailAddress: str | None
-        byDisplayName: str
-        created: datetime
-        actions: list[RequestTicketHistoryResponse.Item.Action]
-    items: list[Item]
+        class Item:
+            @dataclass
+            class Action:
+                field: str
+                toString: str
+                fromString: str | None
 
+            byEmailAddress: str | None
+            byDisplayName: str
+            created: datetime
+            actions: list[RequestTicketHistory.Response.Item.Action]
 
-@dataclass
-class RequestTicketHistory(Action[RequestTicketHistoryResponse]):
+        items: list[Item]
+
     URL = '/rest/api/3/issue/{issue}?expand=renderedFields,changelog'
     mapper = JsonMapper({
         'changelog': {
             'histories': [{
                 'author': {
-                    'emailAddress': into(RequestTicketHistoryResponse.Item).byEmailAddress,
-                    'displayName': into(RequestTicketHistoryResponse.Item).byDisplayName,
+                    'emailAddress': into(Response.Item).byEmailAddress,
+                    'displayName': into(Response.Item).byDisplayName,
                 },
                 'items': [{
-                   'field': into(RequestTicketHistoryResponse.Item.Action).field,
-                   'toString': into(RequestTicketHistoryResponse.Item.Action).toString,
-                   'fromString': into(RequestTicketHistoryResponse.Item.Action).fromString,
-                }, into(RequestTicketHistoryResponse.Item).actions],
-                'created': into(RequestTicketHistoryResponse.Item).created,
-            }, into(RequestTicketHistoryResponse).items],
+                   'field': into(Response.Item.Action).field,
+                   'toString': into(Response.Item.Action).toString,
+                   'fromString': into(Response.Item.Action).fromString,
+                }, into(Response.Item).actions],
+                'created': into(Response.Item).created,
+            }, into(Response).items],
         }
     })
     issue: str
