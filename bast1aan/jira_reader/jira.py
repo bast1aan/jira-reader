@@ -1,13 +1,27 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from datetime import datetime
+from typing import Mapping, TypeVar
+
 from .json_mapper import JsonMapper, into
 from .reader import Action
+from . import settings
+
+T = TypeVar('T')
+
+@dataclass
+class JiraAction(Action[T]):
+    HOST = settings.JIRA_HOST
+    AUTH_LOGIN = settings.JIRA_EMAIL
+    AUTH_PASSWORD = settings.JIRA_API_TOKEN
+    @property
+    def url_args(self) -> Mapping[str, str]:
+        return asdict(self)
 
 
 @dataclass
-class RequestTicketHistory(Action["RequestTicketHistory.Response"]):
+class RequestTicketHistory(JiraAction["RequestTicketHistory.Response"]):
     @dataclass
     class Response:
         @dataclass
@@ -43,4 +57,3 @@ class RequestTicketHistory(Action["RequestTicketHistory.Response"]):
         }
     })
     issue: str
-
