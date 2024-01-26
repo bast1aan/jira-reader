@@ -3,13 +3,30 @@ from collections import defaultdict
 from dataclasses import is_dataclass, Field, fields
 from datetime import datetime
 from functools import cached_property
-from typing import TypeVar, Generic, Mapping, Any, get_args, get_origin
+from typing import TypeVar, Generic, Mapping, Any, get_args, get_origin, ClassVar, get_type_hints
+from typing_extensions import Self
 import dateutil.parser
 
 T = TypeVar('T')
 
+
+def _fix_field_types(cls):
+    hints = get_type_hints(cls, globalns=None, localns=None)
+    for field in fields(cls):
+        field.type = hints[field.name]
+
+
 class _FieldWrapper(Generic[T]):
     cls: type[T]
+
+    _instances: ClassVar[dict[type, Self]] = {}
+
+    @classmethod
+    def for_cls(cls, cls_: type[T]) -> Self:
+        if cls_ not in cls._instances:
+            _fix_field_types(cls_)
+            cls._instances[cls_] = cls(cls_)
+        return cls._instances[cls_]
 
     def __init__(self, cls: type[T]):
         if not is_dataclass(cls):
@@ -27,7 +44,7 @@ class _FieldWrapper(Generic[T]):
 
 
 def into(cls: type[T]) -> T:
-    return _FieldWrapper(cls)
+    return _FieldWrapper.for_cls(cls)
 
 
 class JsonMapper(Generic[T]):
