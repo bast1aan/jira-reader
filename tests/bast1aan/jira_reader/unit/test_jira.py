@@ -1,12 +1,10 @@
-import os
-import importlib.util
 import json
-import types
 import unittest
 
 from bast1aan.jira_reader import async_executor
 from bast1aan.jira_reader.jira import RequestTicketHistory
 from tests.bast1aan.jira_reader.adapters.async_executor import TestHttpAdapter
+from tests.bast1aan.jira_reader.util import get_module_from_file, scriptdir
 
 
 class TestRequestTicketHistory(unittest.IsolatedAsyncioTestCase):
@@ -16,7 +14,7 @@ class TestRequestTicketHistory(unittest.IsolatedAsyncioTestCase):
     JIRA_API_TOKEN = 'jira_api_token'
 
     def test_action(self):
-        with open('test_jira/test_request_ticket_history/test_input.json', 'r') as f:
+        with open(scriptdir('test_jira/test_request_ticket_history/test_input.json'), 'r') as f:
             input = json.load(f)
         expected = get_module_from_file('test_jira/test_request_ticket_history/test_expected.py')
 
@@ -27,7 +25,7 @@ class TestRequestTicketHistory(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(expected.expected, result)
 
     async def test_executor(self):
-        with open('test_jira/test_request_ticket_history/test_input.json', 'r') as f:
+        with open(scriptdir('test_jira/test_request_ticket_history/test_input.json'), 'r') as f:
             input = json.load(f)
         expected = get_module_from_file('test_jira/test_request_ticket_history/test_expected.py')
 
@@ -44,10 +42,3 @@ class TestRequestTicketHistory(unittest.IsolatedAsyncioTestCase):
 
         result = await execute(action)
         self.assertEqual(expected.expected, result)
-
-
-def get_module_from_file(path: str) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(os.path.basename(path)[:-3], path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
