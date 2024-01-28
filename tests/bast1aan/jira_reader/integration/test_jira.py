@@ -44,7 +44,7 @@ class TestRequestTicketHistory(unittest.IsolatedAsyncioTestCase):
 
         jira_app = aiohttp.web.Application()
         jira_app.add_routes([aiohttp.web.get('/rest/api/3/issue/ABC-123', jira)])
-        self.app_task = asyncio.create_task(aiohttp.web._run_app(jira_app, sock=self.sock))#  host='localhost', port=51391))
+        self.app_task = asyncio.create_task(aiohttp.web._run_app(jira_app, sock=self.sock))
         await exists(self.socketpath)
         bast1aan.jira_reader.adapters.async_executor.AioHttpAdapter.unix_socket = self.socketpath
 
@@ -77,10 +77,7 @@ class TestRequestTicketHistory(unittest.IsolatedAsyncioTestCase):
         await exists(flask_sock)
 
         try:
-            connector=aiohttp.UnixConnector(flask_sock)
-            async with aiohttp.ClientSession(connector=connector) as client, \
-                    client.get('http://flask/api/jira/request-ticket-history/ABC-123', headers={'Accept': 'application/json'}) as response:
-
+            async with self.get('http://flask/api/jira/request-ticket-history/ABC-123', flask_sock) as response:
                 result = await response.read()
                 self.assertEqual(2, response.status // 100)
                 self.assertEqual(json.loads(expected), json.loads(result))
