@@ -1,1 +1,6 @@
+Flask==3.0.*
+flask[async]
 python-dateutil==2.8.*
+
+Hypercorn==0.16.*
+aiohttp==3.9.*

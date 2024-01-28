@@ -9,7 +9,10 @@ import aiohttp.web
 
 import tempfile
 
-from tests.bast1aan.jira_reader.util import get_module_from_file, scriptdir
+import bast1aan.jira_reader.adapters.async_executor
+
+from tests.bast1aan.jira_reader.adapters.setup_flask import setup_flask
+from tests.bast1aan.jira_reader.util import scriptdir, exists
 
 
 class TestRequestTicketHistory(unittest.IsolatedAsyncioTestCase):
@@ -42,21 +45,45 @@ class TestRequestTicketHistory(unittest.IsolatedAsyncioTestCase):
         jira_app = aiohttp.web.Application()
         jira_app.add_routes([aiohttp.web.get('/rest/api/3/issue/ABC-123', jira)])
         self.app_task = asyncio.create_task(aiohttp.web._run_app(jira_app, sock=self.sock))#  host='localhost', port=51391))
+        await exists(self.socketpath)
+        bast1aan.jira_reader.adapters.async_executor.AioHttpAdapter.unix_socket = self.socketpath
 
     async def asyncTearDown(self):
         self.app_task.cancel()
         self._tear_down_socket()
+        bast1aan.jira_reader.adapters.async_executor.AioHttpAdapter.unix_socket = ''
         await super().asyncTearDown()
 
     @asynccontextmanager
-    async def get(self) -> aiohttp.ClientResponse:
-        async with aiohttp.ClientSession(connector=aiohttp.UnixConnector(self.socketpath)) as client, \
-            client.get('https://jira-host/rest/api/3/issue/ABC-123?expand=renderedFields,changelog',
-                       headers={'Accept': 'application/json'}) as response:
+    async def get(self, url: str, socketpath: str = '') -> aiohttp.ClientResponse:
+        async with aiohttp.ClientSession(connector=aiohttp.UnixConnector(socketpath or self.socketpath)) as client, \
+                client.get(url, headers={'Accept': 'application/json'}) as response:
             yield response
 
     async def test_test(self):
-        expected = open(scriptdir('test_jira/test_request_ticket_history/test_input.json'), 'rb').read()
-        async with self.get() as response:
+        with open(scriptdir('test_jira/test_request_ticket_history/test_input.json'), 'rb') as f:
+            expected = f.read()
+        async with self.get('https://jira-host/rest/api/3/issue/ABC-123?expand=renderedFields,changelog') as response:
             result = await response.read()
             self.assertEqual(json.loads(result), json.loads(expected))
+
+    async def test_jira(self):
+        with open(scriptdir('test_jira/test_request_ticket_history/test_expected.json'), 'rb') as f:
+            expected = f.read()
+
+        flask_sock = os.path.join(self.tmpdir, 'flask.sock')
+
+        flask_task = setup_flask(flask_sock)
+        await exists(flask_sock)
+
+        try:
+            connector=aiohttp.UnixConnector(flask_sock)
+            async with aiohttp.ClientSession(connector=connector) as client, \
+                    client.get('http://flask/api/jira/request-ticket-history/ABC-123', headers={'Accept': 'application/json'}) as response:
+
+                result = await response.read()
+                self.assertEqual(2, response.status // 100)
+                self.assertEqual(json.loads(expected), json.loads(result))
+        finally:
+            flask_task.cancel()
+            os.unlink(flask_sock)

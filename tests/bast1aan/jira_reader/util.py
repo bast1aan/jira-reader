@@ -1,3 +1,4 @@
+import asyncio
 import importlib.util
 import os
 import traceback
@@ -19,3 +20,13 @@ def scriptdir(path: str = '') -> str:
     if path:
         return os.path.join(os.path.dirname(caller_filename), path)
     return os.path.dirname(caller_filename)
+
+async def exists(path: str, timeout: float = 1.0) -> None:
+    # fine for now, inotify would be neater.
+    spent = 0.0
+    while spent < timeout:
+        if os.path.exists(path):
+            return
+        await asyncio.sleep(0.01)
+        spent += 0.01
+    raise TimeoutError(f'Path {path} not found after {timeout} seconds')
