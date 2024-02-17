@@ -1,11 +1,13 @@
 import json
 from datetime import datetime
+from functools import cached_property
+
 from typing_extensions import Self
 
 from sqlalchemy import String, Text, create_engine, select, Engine
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped, Session
 
-from bast1aan.jira_reader import settings, entities
+from bast1aan.jira_reader import settings, entities, Storage
 
 
 class Base(DeclarativeBase):
@@ -35,25 +37,26 @@ class Request(Base):
             result=json.dumps(entity.result)
         )
 
-def set_up() -> None:
-    Base.metadata.create_all(_engine())
+class SQLStorage(Storage):
 
-_eng: Engine | None = None
+    def set_up(self) -> None:
+        Base.metadata.create_all(self._engine)
 
-def _engine() -> Engine:
-    global _eng
-    if not _eng:
-        _eng = create_engine(settings.SQLSTORAGE_SQLITE)
-    return _eng
+    @cached_property
+    def _engine(self) -> Engine:
+        return create_engine(settings.SQLSTORAGE_SQLITE)
 
-def get_latest_request(url: str) -> entities.Request:
-    with Session(_engine()) as session:
-        stmt = select(Request).where(Request.url.is_(url)).order_by(Request.requested.desc()).limit(1)
-        model = session.scalar(stmt)
-        return model.entity
+    def _session(self) -> Session:
+        return Session(self._engine)
 
-def save_request(request: entities.Request) -> None:
-    with Session(_engine()) as session:
-        request_model = Request.from_entity(request)
-        session.add(request_model)
-        session.commit()
+    def get_latest_request(self, url: str) -> entities.Request:
+        with self._session() as session:
+            stmt = select(Request).where(Request.url.is_(url)).order_by(Request.requested.desc()).limit(1)
+            model = session.scalar(stmt)
+            return model.entity
+
+    def save_request(self, request: entities.Request) -> None:
+        with self._session() as session:
+            request_model = Request.from_entity(request)
+            session.add(request_model)
+            session.commit()
