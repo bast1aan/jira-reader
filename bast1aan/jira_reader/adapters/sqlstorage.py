@@ -5,7 +5,7 @@ from functools import cached_property
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncConnection, AsyncSession, async_sessionmaker
 from typing_extensions import Self
 
-from sqlalchemy import String, Text, select
+from sqlalchemy import String, Text, select, UniqueConstraint, DateTime
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
 
 from bast1aan.jira_reader import settings, entities, Storage
@@ -16,10 +16,13 @@ class Base(DeclarativeBase):
 
 class Request(Base):
     __tablename__ = 'requests'
+    __table_args__ = (
+        UniqueConstraint('url', 'requested'),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    url: Mapped[str] = mapped_column(String(255))
-    requested: Mapped[datetime]
+    url: Mapped[str] = mapped_column(String(255), index=True)
+    requested: Mapped[datetime] = mapped_column(DateTime(), index=True)
     result: Mapped[str] = mapped_column(Text())
 
     @property
@@ -55,7 +58,6 @@ class SQLStorage(Storage):
 
     async def get_latest_request(self, url: str) -> entities.Request | None:
         async with self._async_session() as session:
-            conn: AsyncConnection
             stmt = select(Request).where(Request.url.is_(url)).order_by(Request.requested.desc()).limit(1)
             model = await session.scalar(stmt)
             return model.entity if model else None
