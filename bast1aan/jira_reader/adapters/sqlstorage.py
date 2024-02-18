@@ -2,10 +2,11 @@ import json
 from datetime import datetime
 from functools import cached_property
 
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncConnection, AsyncSession, async_sessionmaker
 from typing_extensions import Self
 
-from sqlalchemy import String, Text, create_engine, select, Engine
-from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped, Session
+from sqlalchemy import String, Text, select
+from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
 
 from bast1aan.jira_reader import settings, entities, Storage
 
@@ -39,24 +40,28 @@ class Request(Base):
 
 class SQLStorage(Storage):
 
-    def set_up(self) -> None:
-        Base.metadata.create_all(self._engine)
+    async def set_up(self) -> None:
+        async with self._async_engine.begin() as conn:
+            conn: AsyncConnection
+            await conn.run_sync(Base.metadata.create_all)
 
     @cached_property
-    def _engine(self) -> Engine:
-        return create_engine(settings.SQLSTORAGE_SQLITE)
+    def _async_engine(self) -> AsyncEngine:
+        return create_async_engine(settings.SQLSTORAGE_SQLITE)
 
-    def _session(self) -> Session:
-        return Session(self._engine)
+    @property
+    def _async_session(self) -> async_sessionmaker[AsyncSession]:
+        return async_sessionmaker(self._async_engine, expire_on_commit=False)
 
-    def get_latest_request(self, url: str) -> entities.Request:
-        with self._session() as session:
+    async def get_latest_request(self, url: str) -> entities.Request | None:
+        async with self._async_session() as session:
+            conn: AsyncConnection
             stmt = select(Request).where(Request.url.is_(url)).order_by(Request.requested.desc()).limit(1)
-            model = session.scalar(stmt)
-            return model.entity
+            model = await session.scalar(stmt)
+            return model.entity if model else None
 
-    def save_request(self, request: entities.Request) -> None:
-        with self._session() as session:
+    async def save_request(self, request: entities.Request) -> None:
+        async with self._async_session() as session:
             request_model = Request.from_entity(request)
             session.add(request_model)
-            session.commit()
+            await session.commit()
