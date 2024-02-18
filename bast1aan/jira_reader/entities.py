@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 
-JSON = list | dict | str
+JSONable = list | dict | str | None
 
 class Storage(ABC):
     @abstractmethod
@@ -15,5 +15,5 @@ class Storage(ABC):
 class Request:
     url: str
     requested: datetime
-    result: JSON
+    result: JSONable
 

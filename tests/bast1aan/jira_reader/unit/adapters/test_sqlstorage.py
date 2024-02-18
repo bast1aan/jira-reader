@@ -45,3 +45,38 @@ class TestSqlStorage(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(sqlalchemy.exc.IntegrityError) as e:
             await self.storage.save_request(req2)
         self.assertIn('UNIQUE constraint failed', str(e.exception))
+
+    async def test_url_cannot_be_null(self) -> None:
+        req_url_none = entities.Request(
+            url=None,  # type: ignore
+            requested=datetime.now(),
+            result=[]
+        )
+        with self.assertRaises(sqlalchemy.exc.IntegrityError) as e:
+            await self.storage.save_request(req_url_none)
+        self.assertIn('NOT NULL constraint failed', str(e.exception))
+
+    async def test_requested_is_default_now(self) -> None:
+        now = datetime.now()
+        req_url_none = entities.Request(
+            url='http://some_url',
+            requested=None,  # type: ignore
+            result=[]
+        )
+        await self.storage.save_request(req_url_none)
+
+        saved_req = await self.storage.get_latest_request('http://some_url')
+
+        self.assertGreaterEqual(saved_req.requested, now)
+
+    async def test_result_may_be_none_because_it_is_serialized_to_string(self) -> None:
+        req_url_none = entities.Request(
+            url='http://some_url',
+            requested=datetime.now(),
+            result=None
+        )
+        await self.storage.save_request(req_url_none)
+
+        saved_req = await self.storage.get_latest_request('http://some_url')
+
+        self.assertIsNone(saved_req.result)

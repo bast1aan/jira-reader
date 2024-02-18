@@ -21,9 +21,9 @@ class Request(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    url: Mapped[str] = mapped_column(String(255), index=True)
-    requested: Mapped[datetime] = mapped_column(DateTime(), index=True)
-    result: Mapped[str] = mapped_column(Text())
+    url: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+    requested: Mapped[datetime] = mapped_column(DateTime(), index=True, nullable=False)
+    result: Mapped[str] = mapped_column(Text(), nullable=False)
 
     @property
     def entity(self) -> entities.Request:
