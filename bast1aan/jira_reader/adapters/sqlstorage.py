@@ -17,18 +17,18 @@ class Base(DeclarativeBase):
 class Request(Base):
     __tablename__ = 'requests'
     __table_args__ = (
-        UniqueConstraint('url', 'requested'),
+        UniqueConstraint('issue', 'requested'),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    url: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+    issue: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
     requested: Mapped[datetime] = mapped_column(DateTime(), index=True, nullable=False)
     result: Mapped[str] = mapped_column(Text(), nullable=False)
 
     @property
     def entity(self) -> entities.Request:
         return entities.Request(
-            url=self.url,
+            issue=self.issue,
             requested=self.requested,
             result=json.loads(self.result)
         )
@@ -36,7 +36,7 @@ class Request(Base):
     @classmethod
     def from_entity(cls, entity: entities.Request) -> Self:
         return cls(
-            url=entity.url,
+            issue=entity.issue,
             requested=entity.requested or datetime.now(),
             result=json.dumps(entity.result)
         )
@@ -56,9 +56,9 @@ class SQLStorage(Storage):
     def _async_session(self) -> async_sessionmaker[AsyncSession]:
         return async_sessionmaker(self._async_engine, expire_on_commit=False)
 
-    async def get_latest_request(self, url: str) -> entities.Request | None:
+    async def get_latest_request(self, issue: str) -> entities.Request | None:
         async with self._async_session() as session:
-            stmt = select(Request).where(Request.url.is_(url)).order_by(Request.requested.desc()).limit(1)
+            stmt = select(Request).where(Request.issue.is_(issue)).order_by(Request.requested.desc()).limit(1)
             model = await session.scalar(stmt)
             return model.entity if model else None
 

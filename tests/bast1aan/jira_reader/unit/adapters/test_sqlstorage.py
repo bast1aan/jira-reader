@@ -16,7 +16,7 @@ class TestSqlStorage(unittest.IsolatedAsyncioTestCase):
 
     async def test(self) -> None:
         req = entities.Request(
-            url='http://some_url',
+            issue='ABC-123',
             requested=datetime.now(),
             result=[
                 {'some': 'object'},
@@ -24,19 +24,19 @@ class TestSqlStorage(unittest.IsolatedAsyncioTestCase):
         )
         await self.storage.save_request(req)
 
-        saved_req = await self.storage.get_latest_request('http://some_url')
+        saved_req = await self.storage.get_latest_request('ABC-123')
 
         self.assertEqual(req, saved_req)
 
     async def test_cannot_have_same_url_at_same_time(self) -> None:
         now = datetime.now()
         req1 = entities.Request(
-            url='http://some_url',
+            issue='ABC-123',
             requested=now,
             result=[]
         )
         req2 = entities.Request(
-            url='http://some_url',
+            issue='ABC-123',
             requested=now,
             result=[{'some': 'other'}]
         )
@@ -48,7 +48,7 @@ class TestSqlStorage(unittest.IsolatedAsyncioTestCase):
 
     async def test_url_cannot_be_null(self) -> None:
         req_url_none = entities.Request(
-            url=None,  # type: ignore
+            issue=None,  # type: ignore
             requested=datetime.now(),
             result=[]
         )
@@ -59,24 +59,24 @@ class TestSqlStorage(unittest.IsolatedAsyncioTestCase):
     async def test_requested_is_default_now(self) -> None:
         now = datetime.now()
         req_url_none = entities.Request(
-            url='http://some_url',
+            issue='ABC-123',
             requested=None,  # type: ignore
             result=[]
         )
         await self.storage.save_request(req_url_none)
 
-        saved_req = await self.storage.get_latest_request('http://some_url')
+        saved_req = await self.storage.get_latest_request('ABC-123')
 
         self.assertGreaterEqual(saved_req.requested, now)
 
     async def test_result_may_be_none_because_it_is_serialized_to_string(self) -> None:
         req_url_none = entities.Request(
-            url='http://some_url',
+            issue='ABC-123',
             requested=datetime.now(),
             result=None
         )
         await self.storage.save_request(req_url_none)
 
-        saved_req = await self.storage.get_latest_request('http://some_url')
+        saved_req = await self.storage.get_latest_request('ABC-123')
 
         self.assertIsNone(saved_req.result)
