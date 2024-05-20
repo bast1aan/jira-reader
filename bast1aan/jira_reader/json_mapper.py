@@ -1,6 +1,7 @@
+import json
 import types
 from collections import defaultdict
-from dataclasses import is_dataclass, Field, fields
+from dataclasses import is_dataclass, Field, fields, asdict
 from datetime import datetime
 from functools import cached_property
 from typing import TypeVar, Generic, Mapping, Any, get_args, get_origin, ClassVar, get_type_hints, NamedTuple
@@ -128,3 +129,14 @@ class JsonMapper(Generic[T]):
 class DecodingError(Exception): pass
 
 class NoneTypeError(TypeError): pass
+
+class JSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if is_dataclass(o):
+            return asdict(o)
+        if isinstance(o, datetime):
+            return o.isoformat()
+        return super().default(o)
+
+def dumps(o: object) -> str:
+    return json.dumps(o, cls=JSONEncoder)

@@ -14,6 +14,5 @@ class Storage(ABC):
 @dataclass
 class Request:
     issue: str
-    requested: datetime
     result: JSONable
-
+    requested: datetime | None = None

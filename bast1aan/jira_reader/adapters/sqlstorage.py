@@ -5,10 +5,10 @@ from functools import cached_property
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncConnection, AsyncSession, async_sessionmaker
 from typing_extensions import Self
 
-from sqlalchemy import String, Text, select, UniqueConstraint, DateTime
+from sqlalchemy import String, Text, select, UniqueConstraint, DateTime, text
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
 
-from bast1aan.jira_reader import settings, entities, Storage
+from bast1aan.jira_reader import settings, entities, Storage, json_mapper
 
 
 class Base(DeclarativeBase):
@@ -38,7 +38,7 @@ class Request(Base):
         return cls(
             issue=entity.issue,
             requested=entity.requested or datetime.now(),
-            result=json.dumps(entity.result)
+            result=json_mapper.dumps(entity.result)
         )
 
 class SQLStorage(Storage):
@@ -47,6 +47,10 @@ class SQLStorage(Storage):
         async with self._async_engine.begin() as conn:
             conn: AsyncConnection
             await conn.run_sync(Base.metadata.create_all)
+
+    async def clean_up(self):
+        async with self._async_session() as session:
+            await session.execute(text('DELETE FROM requests'))
 
     @cached_property
     def _async_engine(self) -> AsyncEngine:

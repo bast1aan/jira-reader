@@ -10,12 +10,15 @@ import aiohttp.web
 import tempfile
 
 import bast1aan.jira_reader.adapters.async_executor
+import bast1aan.jira_reader.rest_api
+from bast1aan.jira_reader.adapters.sqlstorage import SQLStorage
 
 from tests.bast1aan.jira_reader.adapters.setup_flask import setup_flask
 from tests.bast1aan.jira_reader.util import scriptdir, exists
 
 
 class TestRequestTicketHistory(unittest.IsolatedAsyncioTestCase):
+    maxDiff = None
     requests: list[aiohttp.web.Request]
     app_task: asyncio.Task
 
@@ -47,6 +50,10 @@ class TestRequestTicketHistory(unittest.IsolatedAsyncioTestCase):
         self.app_task = asyncio.create_task(aiohttp.web._run_app(jira_app, sock=self.sock))
         await exists(self.socketpath)
         bast1aan.jira_reader.adapters.async_executor.AioHttpAdapter.unix_socket = self.socketpath
+        self.storage = SQLStorage()
+        await self.storage.set_up()
+        await self.storage.clean_up()
+        bast1aan.jira_reader.rest_api._storage = self.storage
 
     async def asyncTearDown(self):
         self.app_task.cancel()
@@ -81,6 +88,28 @@ class TestRequestTicketHistory(unittest.IsolatedAsyncioTestCase):
                 result = await response.read()
                 self.assertEqual(2, response.status // 100)
                 self.assertEqual(json.loads(expected), json.loads(result))
+        finally:
+            flask_task.cancel()
+            os.unlink(flask_sock)
+
+    async def test_jira_request_saved_to_db(self):
+        with open(scriptdir('test_jira/test_request_ticket_history/test_expected.json'), 'rb') as f:
+            expected = f.read()
+
+        flask_sock = os.path.join(self.tmpdir, 'flask.sock')
+
+        flask_task = setup_flask(flask_sock)
+        await exists(flask_sock)
+
+        try:
+            async with self.get('http://flask/api/jira/request-ticket-history/ABC-123', flask_sock) as response:
+                result = await response.read()
+                self.assertEqual(2, response.status // 100)
+                self.assertEqual(json.loads(expected), json.loads(result))
+                latest_request = await self.storage.get_latest_request('ABC-123')
+                self.assertIsNotNone(latest_request)
+                self.assertEqual('ABC-123', latest_request.issue)
+                self.assertEqual(json.loads(expected), latest_request.result)
         finally:
             flask_task.cancel()
             os.unlink(flask_sock)
