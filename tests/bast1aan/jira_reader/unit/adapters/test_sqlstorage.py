@@ -4,14 +4,15 @@ from datetime import datetime
 import sqlalchemy.exc
 
 from bast1aan.jira_reader import entities
-from bast1aan.jira_reader.adapters.sqlstorage import SQLStorage
+from bast1aan.jira_reader.adapters.alembic.jira_reader import AlembicSQLInitializer
+from bast1aan.jira_reader.adapters.sqlstorage import SQLStorage, Base
 
 
 class TestSqlStorage(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
-        self.storage = SQLStorage()
+        self.storage = SQLStorage(AlembicSQLInitializer(Base.metadata))
         await self.storage.set_up()
 
     async def test(self) -> None:

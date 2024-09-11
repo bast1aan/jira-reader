@@ -1,6 +1,9 @@
 import json
+from abc import ABC, abstractmethod
+from asyncio import Future
 from datetime import datetime
 from functools import cached_property, reduce
+from typing import Callable
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncConnection, AsyncSession, async_sessionmaker
 from typing_extensions import Self
@@ -9,8 +12,6 @@ from sqlalchemy import String, Text, select, UniqueConstraint, DateTime, text
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
 
 from bast1aan.jira_reader import settings, entities, Storage, json_mapper
-from bast1aan.jira_reader.adapters.alembic.env import run_migrations_online
-from bast1aan.jira_reader.adapters.alembic.env_jira_reader import run_migrations
 
 
 def _get_aio_url() -> str:
@@ -49,12 +50,18 @@ class Request(Base):
             result=json_mapper.dumps(entity.result)
         )
 
+class SQLInitializer(ABC):
+    @abstractmethod
+    async def __call__ (self, conn: AsyncConnection) -> None:...
+
 class SQLStorage(Storage):
+    def __init__(self, sql_initializer: SQLInitializer):
+        self._sql_initializer = sql_initializer
 
     async def set_up(self) -> None:
         async with self._async_engine.begin() as conn:
             conn: AsyncConnection
-            await conn.run_sync(run_migrations, Base.metadata)
+            await self._sql_initializer(conn)
 
     async def clean_up(self):
         async with self._async_session() as session:

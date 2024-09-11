@@ -11,7 +11,8 @@ import tempfile
 
 import bast1aan.jira_reader.adapters.async_executor
 import bast1aan.jira_reader.rest_api
-from bast1aan.jira_reader.adapters.sqlstorage import SQLStorage
+from bast1aan.jira_reader.adapters.alembic.jira_reader import AlembicSQLInitializer
+from bast1aan.jira_reader.adapters.sqlstorage import SQLStorage, Base
 
 from tests.bast1aan.jira_reader.adapters.setup_flask import setup_flask
 from tests.bast1aan.jira_reader.util import scriptdir, exists
@@ -50,7 +51,7 @@ class TestRequestTicketHistory(unittest.IsolatedAsyncioTestCase):
         self.app_task = asyncio.create_task(aiohttp.web._run_app(jira_app, sock=self.sock))
         await exists(self.socketpath)
         bast1aan.jira_reader.adapters.async_executor.AioHttpAdapter.unix_socket = self.socketpath
-        self.storage = SQLStorage()
+        self.storage = SQLStorage(AlembicSQLInitializer(Base.metadata))
         await self.storage.set_up()
         await self.storage.clean_up()
         bast1aan.jira_reader.rest_api._storage = self.storage
