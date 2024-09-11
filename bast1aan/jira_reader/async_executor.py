@@ -23,7 +23,7 @@ class Executor:
     adapter: HttpAdapter
 
     async def __call__(self, action: Action[T]) -> T:
-        """ Raises: ExecutorException """
+        """ raises: ExecutorException """
         url = action.HOST + action.url
         auth = None
         if action.AUTH_LOGIN and action.AUTH_PASSWORD:

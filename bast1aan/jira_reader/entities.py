@@ -10,9 +10,19 @@ class Storage(ABC):
     async def get_latest_request(self, issue: str) -> Request | None: ...
     @abstractmethod
     async def save_request(self, request: Request) -> None: ...
+    @abstractmethod
+    async def get_issue_data(self, issue: str) -> IssueData: ...
+    @abstractmethod
+    async def save_issue_data(self, data: IssueData) -> None: ...
 
 @dataclass
 class Request:
     issue: str
     result: JSONable
     requested: datetime | None = None
+
+@dataclass
+class IssueData:
+    issue: str
+    history: JSONable
+    computed: datetime | None = None

@@ -19,7 +19,7 @@ from tests.bast1aan.jira_reader.adapters.sqlstorage import TestSQLStorage
 from tests.bast1aan.jira_reader.util import scriptdir, exists
 
 
-class TestRequestTicketHistory(unittest.IsolatedAsyncioTestCase):
+class JiraTestCase(unittest.IsolatedAsyncioTestCase):
     maxDiff = None
     requests: list[aiohttp.web.Request]
     app_task: asyncio.Task

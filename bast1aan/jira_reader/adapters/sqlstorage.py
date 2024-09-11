@@ -50,6 +50,32 @@ class Request(Base):
             result=json_mapper.dumps(entity.result)
         )
 
+class IssueData(Base):
+    __tablename__ = 'issue_data'
+    __table_args__ = (
+        UniqueConstraint('issue', 'computed'),
+    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    issue: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
+    computed: Mapped[datetime] = mapped_column(DateTime(), index=True, nullable=False)
+    history: Mapped[str] = mapped_column(Text(), nullable=False)
+
+    @property
+    def entity(self) -> entities.IssueData:
+        return entities.IssueData(
+            issue=self.issue,
+            computed=self.computed,
+            history=json.loads(self.history),
+        )
+
+    @classmethod
+    def from_entity(cls, entity: entities.IssueData) -> Self:
+        return cls(
+            issue=entity.issue,
+            computed=entity.computed or datetime.now(),
+            history=json_mapper.dumps(entity.history),
+        )
+
 class SQLInitializer(ABC):
     @abstractmethod
     async def __call__ (self, conn: AsyncConnection) -> None:...
@@ -81,4 +107,16 @@ class SQLStorage(Storage):
         async with self._async_session() as session:
             request_model = Request.from_entity(request)
             session.add(request_model)
+            await session.commit()
+
+    async def get_issue_data(self, issue: str) -> entities.IssueData:
+        async with self._async_session() as session:
+            stmt = select(IssueData).where(IssueData.issue.is_(issue)).order_by(IssueData.computed.desc()).limit(1)
+            model = await session.scalar(stmt)
+            return model.entity if model else None
+
+    async def save_issue_data(self, data: entities.IssueData) -> None:
+        async with self._async_session() as session:
+            data_model = IssueData.from_entity(data)
+            session.add(data_model)
             await session.commit()
