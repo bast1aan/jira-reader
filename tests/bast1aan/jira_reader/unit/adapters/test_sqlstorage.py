@@ -5,15 +5,17 @@ import sqlalchemy.exc
 
 from bast1aan.jira_reader import entities
 from bast1aan.jira_reader.adapters.alembic.jira_reader import AlembicSQLInitializer
-from bast1aan.jira_reader.adapters.sqlstorage import SQLStorage, Base
+from bast1aan.jira_reader.adapters.sqlstorage import Base
+from tests.bast1aan.jira_reader.adapters.sqlstorage import TestSQLStorage
 
 
 class TestSqlStorage(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
-        self.storage = SQLStorage(AlembicSQLInitializer(Base.metadata))
+        self.storage = TestSQLStorage(AlembicSQLInitializer(Base.metadata))
         await self.storage.set_up()
+        await self.storage.clean_up()
 
     async def test(self) -> None:
         req = entities.Request(

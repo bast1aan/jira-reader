@@ -63,10 +63,6 @@ class SQLStorage(Storage):
             conn: AsyncConnection
             await self._sql_initializer(conn)
 
-    async def clean_up(self):
-        async with self._async_session() as session:
-            await session.execute(text('DELETE FROM requests'))
-
     @cached_property
     def _async_engine(self) -> AsyncEngine:
         return create_async_engine(_get_aio_url())
