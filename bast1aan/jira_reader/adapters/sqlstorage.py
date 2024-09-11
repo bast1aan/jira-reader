@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from functools import cached_property
+from functools import cached_property, reduce
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncConnection, AsyncSession, async_sessionmaker
 from typing_extensions import Self
@@ -9,6 +9,14 @@ from sqlalchemy import String, Text, select, UniqueConstraint, DateTime, text
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
 
 from bast1aan.jira_reader import settings, entities, Storage, json_mapper
+from bast1aan.jira_reader.adapters.alembic.env import run_migrations_online
+from bast1aan.jira_reader.adapters.alembic.env_jira_reader import run_migrations
+
+
+def _get_aio_url() -> str:
+    url: str = settings.SQLSTORAGE_SQLITE
+    replaces = {'sqlite:/': 'sqlite+aiosqlite:/'}
+    return reduce(lambda a, b: a.replace(b[0], b[1]), replaces.items(), url)
 
 
 class Base(DeclarativeBase):
@@ -46,7 +54,7 @@ class SQLStorage(Storage):
     async def set_up(self) -> None:
         async with self._async_engine.begin() as conn:
             conn: AsyncConnection
-            await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(run_migrations, Base.metadata)
 
     async def clean_up(self):
         async with self._async_session() as session:
@@ -54,7 +62,7 @@ class SQLStorage(Storage):
 
     @cached_property
     def _async_engine(self) -> AsyncEngine:
-        return create_async_engine(settings.SQLSTORAGE_SQLITE)
+        return create_async_engine(_get_aio_url())
 
     @property
     def _async_session(self) -> async_sessionmaker[AsyncSession]:

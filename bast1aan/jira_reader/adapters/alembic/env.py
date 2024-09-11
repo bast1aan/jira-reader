@@ -5,22 +5,26 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from bast1aan.jira_reader.adapters.sqlstorage import Base
+from bast1aan.jira_reader import settings
+import bast1aan.jira_reader.adapters.sqlstorage
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
-config = context.config
+def _get_config():
+    config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Interpret the config file for Python logging.
+    # This line sets up loggers basically.
+    if config.config_file_name is not None:
+        fileConfig(config.config_file_name)
+
+    return config
 
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-target_metadata = Base.metadata
+#target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -40,10 +44,10 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    url = settings.SQLSTORAGE_SQLITE
     context.configure(
         url=url,
-        target_metadata=target_metadata,
+        target_metadata=bast1aan.jira_reader.adapters.sqlstorage.Base.metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -59,22 +63,28 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    config = _get_config()
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        {
+            **config.get_section(config.config_ini_section, {}),
+            'sqlalchemy.url': settings.SQLSTORAGE_SQLITE,
+        },
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection, target_metadata=bast1aan.jira_reader.adapters.sqlstorage.Base.metadata
         )
 
         with context.begin_transaction():
             context.run_migrations()
 
 
-if context.is_offline_mode():
-    run_migrations_offline()
-else:
-    run_migrations_online()
+if __name__ == 'env_py':
+    if context.is_offline_mode():
+        run_migrations_offline()
+    else:
+        run_migrations_online()
