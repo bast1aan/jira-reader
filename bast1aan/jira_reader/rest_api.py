@@ -14,7 +14,7 @@ app = Flask(__name__)
 
 @app.route("/api/jira/request-ticket-history/<issue>")
 async def index(issue: str) -> Response:
-    storage = _sql_storage()
+    storage = await _sql_storage()
     latest_request = await storage.get_latest_request(issue)
     if latest_request:
         result = latest_request.result
@@ -27,9 +27,10 @@ async def index(issue: str) -> Response:
 
 _storage = None
 
-def _sql_storage() -> SQLStorage:
+async def _sql_storage() -> SQLStorage:
     """ One storage instance per app """
     global _storage
     if not _storage:
         _storage = SQLStorage(AlembicSQLInitializer(Base.metadata))
+        await _storage.set_up()
     return _storage
