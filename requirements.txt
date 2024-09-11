@@ -8,3 +8,5 @@ sqlalchemy==2.0.*
 sqlalchemy[asyncio]
 sqlalchemy-migrate
 aiosqlite
+
+alembic
