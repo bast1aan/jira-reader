@@ -19,6 +19,12 @@ class JiraAction(Action[T]):
     def url_args(self) -> Mapping[str, str]:
         return asdict(self)
 
+@dataclass
+class RequestTicketData(JiraAction[object]):
+    URL = '/rest/api/3/issue/{issue}?expand=renderedFields,changelog'
+    issue: str
+    def mapper(self, data: object) -> object:
+        return data
 
 @dataclass
 class RequestTicketHistory(JiraAction["RequestTicketHistory.Response"]):
