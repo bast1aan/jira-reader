@@ -12,8 +12,21 @@ from bast1aan.jira_reader.jira import RequestTicketHistory
 
 app = Flask(__name__)
 
-@app.route("/api/jira/request-ticket-history/<issue>")
-async def index(issue: str) -> Response:
+@app.route("/api/jira/fetch-data/<issue>")
+async def fetch_data(issue: str) -> Response:
+    storage = await _sql_storage()
+    latest_request = await storage.get_latest_request(issue)
+    if latest_request:
+        result = latest_request.result
+    else:
+        action = RequestTicketHistory(issue)
+        execute = Executor(AioHttpAdapter())
+        result = await execute(action)
+        await storage.save_request(Request(issue=issue, result=asdict(result)))
+    return app.response_class(json_mapper.dumps(result), mimetype="application/json")
+
+@app.route("/api/jira/compute-history/<issue>")
+async def compute_history(issue: str) -> Response:
     storage = await _sql_storage()
     latest_request = await storage.get_latest_request(issue)
     if latest_request:
