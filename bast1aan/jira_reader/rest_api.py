@@ -8,8 +8,8 @@ from bast1aan.jira_reader.adapters.alembic.jira_reader import AlembicSQLInitiali
 from bast1aan.jira_reader.adapters.async_executor import AioHttpAdapter
 from bast1aan.jira_reader.adapters.sqlstorage import SQLStorage, Base
 from bast1aan.jira_reader.async_executor import Executor, ExecutorException
-from bast1aan.jira_reader.entities import Request
-from bast1aan.jira_reader.jira import RequestTicketHistory, RequestTicketData
+from bast1aan.jira_reader.entities import Request, IssueData
+from bast1aan.jira_reader.jira import RequestTicketData, ComputeTicketHistory
 
 app = Flask(__name__)
 
@@ -32,15 +32,18 @@ async def fetch_data(issue: str) -> Response:
 @app.route("/api/jira/compute-history/<issue>")
 async def compute_history(issue: str) -> Response:
     storage = await _sql_storage()
-    latest_request = await storage.get_latest_request(issue)
-    if latest_request:
+    issue_data = await storage.get_issue_data(issue)
+    if not issue_data:
+        latest_request = await storage.get_latest_request(issue)
+        if not latest_request:
+            return app.response_class('{"error": "Issue not found in database"}', mimetype="application/json",
+                                      status=404)
         result = latest_request.result
-    else:
-        action = RequestTicketHistory(issue)
-        execute = Executor(AioHttpAdapter())
-        result = await execute(action)
-        await storage.save_request(Request(issue=issue, result=asdict(result)))
-    return app.response_class(json_mapper.dumps(result), mimetype="application/json")
+        action = ComputeTicketHistory()
+        history = action.get_response(result)
+        issue_data = IssueData(issue=issue, history=asdict(history))
+        await storage.save_issue_data(issue_data)
+    return app.response_class(json_mapper.dumps(issue_data.history), mimetype="application/json")
 
 _storage = None
 
