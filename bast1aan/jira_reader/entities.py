@@ -26,3 +26,12 @@ class IssueData:
     issue: str
     history: JSONable
     computed: datetime | None = None
+
+@dataclass
+class Timeline:
+    issue: str
+    start: datetime
+    end: datetime
+    display_name: str
+    email: str
+    type: str
