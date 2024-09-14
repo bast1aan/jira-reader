@@ -26,8 +26,7 @@ class RequestTicketData(JiraAction[object]):
     def mapper(self, data: object) -> object:
         return data
 
-@dataclass
-class RequestTicketHistory(JiraAction["RequestTicketHistory.Response"]):
+class ComputeTicketHistory(JiraAction["ComputeTicketHistory.Response"]):
     @dataclass
     class Response:
         @dataclass
@@ -35,17 +34,17 @@ class RequestTicketHistory(JiraAction["RequestTicketHistory.Response"]):
             @dataclass
             class Action:
                 field: str
-                toString: str
+                toString: str | None
                 fromString: str | None
 
             byEmailAddress: str | None
             byDisplayName: str
             created: datetime
-            actions: list[RequestTicketHistory.Response.Item.Action]
+            actions: list[ComputeTicketHistory.Response.Item.Action]
 
         items: list[Item]
 
-    URL = '/rest/api/3/issue/{issue}?expand=renderedFields,changelog'
+    URL = ''
     mapper = JsonMapper({
         'changelog': {
             'histories': [{
@@ -62,4 +61,3 @@ class RequestTicketHistory(JiraAction["RequestTicketHistory.Response"]):
             }, into(Response).items],
         }
     })
-    issue: str
