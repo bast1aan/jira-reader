@@ -7,7 +7,7 @@ from bast1aan.jira_reader import json_mapper
 from bast1aan.jira_reader.adapters.alembic.jira_reader import AlembicSQLInitializer
 from bast1aan.jira_reader.adapters.async_executor import AioHttpAdapter
 from bast1aan.jira_reader.adapters.sqlstorage import SQLStorage, Base
-from bast1aan.jira_reader.async_executor import Executor
+from bast1aan.jira_reader.async_executor import Executor, ExecutorException
 from bast1aan.jira_reader.entities import Request
 from bast1aan.jira_reader.jira import RequestTicketHistory, RequestTicketData
 
@@ -22,8 +22,11 @@ async def fetch_data(issue: str) -> Response:
     else:
         action = RequestTicketData(issue)
         execute = Executor(AioHttpAdapter())
-        result = await execute(action)
-        await storage.save_request(Request(issue=issue, result=result))
+        try:
+            result = await execute(action)
+            await storage.save_request(Request(issue=issue, result=result))
+        except ExecutorException as e:
+            return app.response_class(json.dumps(e.args[1]), mimetype="application/json", status=e.args[0])
     return app.response_class(json.dumps(result), mimetype="application/json")
 
 @app.route("/api/jira/compute-history/<issue>")

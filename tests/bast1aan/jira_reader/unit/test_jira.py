@@ -2,6 +2,7 @@ import json
 import unittest
 
 from bast1aan.jira_reader import async_executor
+from bast1aan.jira_reader.async_executor import ExecutorException
 from bast1aan.jira_reader.jira import RequestTicketHistory, RequestTicketData
 from tests.bast1aan.jira_reader.adapters.async_executor import TestHttpAdapter
 from tests.bast1aan.jira_reader.util import get_module_from_file, scriptdir
@@ -76,3 +77,14 @@ class TestRequestTicketData(unittest.IsolatedAsyncioTestCase):
 
         result = await execute(action)
         self.assertEqual(input, result)
+
+    async def test_raises_executor_exception_on_404(self):
+        adapter = TestHttpAdapter(request_result={})
+
+        execute = async_executor.Executor(adapter)
+        action = RequestTicketData(issue='ABC-123')
+
+        with self.assertRaises(ExecutorException) as exc_info:
+            result = await execute(action)
+        self.assertEqual(exc_info.exception.args[0], 404)
+
