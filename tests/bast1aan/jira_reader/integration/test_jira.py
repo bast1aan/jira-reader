@@ -144,8 +144,17 @@ class JiraFetchDataTestCase(unittest.IsolatedAsyncioTestCase):
                 headers={'content-type': 'application/json'},
             )
 
+        async def jira_404(request: aiohttp.web.Request) -> aiohttp.web.Response:
+            self.requests.append(request)
+            return aiohttp.web.Response(
+                status=404,
+                body=b'{"errorMessages": ["Issue does not exist or you do not have permission to see it."], "errors": {}}',
+                headers={'content-type': 'application/json'},
+            )
+
         jira_app = aiohttp.web.Application()
         jira_app.add_routes([aiohttp.web.get('/rest/api/3/issue/ABC-123', jira)])
+        jira_app.add_routes([aiohttp.web.get('/rest/api/3/issue/ABC-404', jira_404)])
         self.app_task = asyncio.create_task(aiohttp.web._run_app(jira_app, sock=self.sock))
         await exists(self.socketpath)
         bast1aan.jira_reader.adapters.async_executor.AioHttpAdapter.unix_socket = self.socketpath
@@ -205,3 +214,26 @@ class JiraFetchDataTestCase(unittest.IsolatedAsyncioTestCase):
         finally:
             flask_task.cancel()
             os.unlink(flask_sock)
+
+    async def test_jira_gives_404_does_not_crash(self):
+
+        flask_sock = os.path.join(self.tmpdir, 'flask.sock')
+
+        flask_task = setup_flask(flask_sock)
+        await exists(flask_sock)
+
+        try:
+            async with self.get('http://flask/api/jira/fetch-data/ABC-404', flask_sock) as response:
+                result = await response.read()
+                self.assertEqual(404, response.status)
+                self.assertEqual(
+                    {
+                        'errorMessages': ['Issue does not exist or you do not have permission to see it.'],
+                        'errors': {}
+                    },
+                    json.loads(result)
+                )
+        finally:
+            flask_task.cancel()
+            os.unlink(flask_sock)
+
