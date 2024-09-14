@@ -41,8 +41,16 @@ class ComputeTicketHistory(JiraAction["ComputeTicketHistory.Response"]):
             byDisplayName: str
             created: datetime
             actions: list[ComputeTicketHistory.Response.Item.Action]
+        @dataclass
+        class Comment:
+            id: int
+            byEmailAddress: str
+            byDisplayName: str
+            created: datetime
+            updated: datetime
 
         items: list[Item]
+        comments: list[Comment]
 
     URL = ''
     mapper = JsonMapper({
@@ -59,5 +67,18 @@ class ComputeTicketHistory(JiraAction["ComputeTicketHistory.Response"]):
                 }, into(Response.Item).actions],
                 'created': into(Response.Item).created,
             }, into(Response).items],
+        },
+        "renderedFields": {
+            'comment': {
+                'comments': [{
+                    'id': into(Response.Comment).id,
+                    'author': {
+                        'emailAddress': into(Response.Comment).byEmailAddress,
+                        'displayName': into(Response.Comment).byDisplayName,
+                    },
+                    "created": into(Response.Comment).created,
+                    "updated": into(Response.Comment).updated,
+                }, into(Response).comments]
+            }
         }
     })
