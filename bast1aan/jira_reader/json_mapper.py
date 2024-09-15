@@ -140,3 +140,34 @@ class JSONEncoder(json.JSONEncoder):
 
 def dumps(o: object) -> str:
     return json.dumps(o, cls=JSONEncoder)
+
+def asdataclass(t: type[T], data: dict[str, Any]) -> T:
+    t_fields = {f.name: f for f in fields(t)}
+    converted = {}
+    for k, v in data.items():
+        field_type = t_fields[k].type
+        converted[k] = _convert_to_type(field_type, v)
+    return t(**converted)
+
+def _convert_to_type(t: type[T], data: object) -> T:
+    if t_not_none := _is_optional(t):
+        if data is None:
+            return None
+        else:
+            t = t_not_none
+    if is_dataclass(t):
+        return asdataclass(t, data)
+    elif t is datetime:
+        return datetime.fromisoformat(data)
+    elif get_origin(t) is list:
+        type_in_list = get_args(t)[0]
+        result = []
+        for item in data:
+            result.append(_convert_to_type(type_in_list, item))
+        return result
+    return t(data)
+
+def _is_optional(t: type) -> type | None:
+    args = get_args(t)
+    if type(None) in args:
+        return (set(args) - {type(None)}).pop()
