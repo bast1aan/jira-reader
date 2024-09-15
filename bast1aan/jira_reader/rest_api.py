@@ -9,7 +9,7 @@ from bast1aan.jira_reader.adapters.async_executor import AioHttpAdapter
 from bast1aan.jira_reader.adapters.sqlstorage import SQLStorage, Base
 from bast1aan.jira_reader.async_executor import Executor, ExecutorException
 from bast1aan.jira_reader.entities import Request, IssueData
-from bast1aan.jira_reader.jira import RequestTicketData, ComputeTicketHistory
+from bast1aan.jira_reader.jira import RequestTicketData, ComputeTicketHistory, calculate_timelines
 
 app = Flask(__name__)
 
@@ -48,7 +48,8 @@ async def compute_history(issue: str) -> Response:
 @app.route("/api/jira/timeline/<display_name>")
 async def timeline(display_name: str) -> Response:
     storage = await _sql_storage()
-    results = [issue_data async for issue_data in storage.get_issue_datas()]
+    results = [timeline async for timeline in calculate_timelines(storage.get_issue_datas(), display_name)]
+
     return app.response_class(json_mapper.dumps({'results': results}), mimetype="application/json")
 
 

@@ -29,6 +29,9 @@ class IssueData:
 
 @dataclass
 class Timeline:
+    TYPE_ASSIGNED_2ND_DEVELOPER = 'assigned_2nd developer'
+    TYPE_ASSIGNED = 'assigned'
+    TYPE_IN_PROGESS = 'in_progress'
     issue: str
     start: datetime
     end: datetime

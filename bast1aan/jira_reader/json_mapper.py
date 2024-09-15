@@ -142,6 +142,9 @@ def dumps(o: object) -> str:
     return json.dumps(o, cls=JSONEncoder)
 
 def asdataclass(t: type[T], data: dict[str, Any]) -> T:
+    # convert deferred type hint strings to real types for this dataclass
+    _fix_field_types(t)
+
     t_fields = {f.name: f for f in fields(t)}
     converted = {}
     for k, v in data.items():
