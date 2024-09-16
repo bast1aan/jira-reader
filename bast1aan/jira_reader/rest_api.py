@@ -63,30 +63,24 @@ async def timeline(display_name: str) -> Response:
 @app.route("/api/jira/timeline-ical/<display_name>")
 async def timeline_as_ical(display_name: str) -> Response:
     storage = await _sql_storage()
-    tmpdir = tempfile.mkdtemp(prefix='timeline-ical')
-    files = []
+    calendar = icalendar.Calendar()
+    calendar['X-WR-CALNAME'] = 'jira-reader %s' % display_name
+
     async for issue_data in storage.get_issue_datas():
-        events = []
         for timeline in calculate_timelines(issue_data, display_name):
             event = icalendar.Event()
             event['uid'] = hash(timeline)
             event['dtstart'] = timeline.start.strftime('%Y%m%dT%H%M%S')
             event['dtend'] = timeline.end.strftime('%Y%m%dT%H%M%S')
-            if categories := _get_categories(timeline):
-                event['categories'] = ','.join(categories)
+            event.add('categories', _get_categories(timeline))
             event['summary'] = '%s %s' % (timeline.issue, timeline.type)
-            events.append(event)
-        if len(events) > 0:
-            calendar = icalendar.Calendar()
-            calendar['X-WR-CALNAME'] = issue_data.issue
-            for event in events:
-                calendar.add_component(event)
-            icalfile = '%s.ical' % issue_data.issue
-            files.append(icalfile)
-            with open(Path(tmpdir) / icalfile, 'wb') as f:
-                f.write(calendar.to_ical())
+            calendar.add_component(event)
 
-    return app.response_class(json_mapper.dumps({'dir': tmpdir, 'files': files}), mimetype="application/json")
+    return app.response_class(
+        response=calendar.to_ical(),
+        mimetype="text/calendar",
+        headers={'Content-Disposition': 'attachment; filename="jira-reader {}.ics"'.format(display_name)}
+    )
 
 def _get_categories(timeline: Timeline) -> Sequence[str]:
     categories = []
