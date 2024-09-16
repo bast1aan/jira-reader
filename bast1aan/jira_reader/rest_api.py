@@ -1,6 +1,11 @@
+import hashlib
 import json
+import tempfile
 from dataclasses import asdict
+from pathlib import Path
+from typing import Sequence
 
+import icalendar
 from flask import Flask, Response
 
 from bast1aan.jira_reader import json_mapper
@@ -8,7 +13,7 @@ from bast1aan.jira_reader.adapters.alembic.jira_reader import AlembicSQLInitiali
 from bast1aan.jira_reader.adapters.async_executor import AioHttpAdapter
 from bast1aan.jira_reader.adapters.sqlstorage import SQLStorage, Base
 from bast1aan.jira_reader.async_executor import Executor, ExecutorException
-from bast1aan.jira_reader.entities import Request, IssueData
+from bast1aan.jira_reader.entities import Request, IssueData, Timeline
 from bast1aan.jira_reader.jira import RequestTicketData, ComputeTicketHistory, calculate_timelines
 
 app = Flask(__name__)
@@ -55,6 +60,43 @@ async def timeline(display_name: str) -> Response:
     ]
     return app.response_class(json_mapper.dumps({'results': results}), mimetype="application/json")
 
+@app.route("/api/jira/timeline-ical/<display_name>")
+async def timeline_as_ical(display_name: str) -> Response:
+    storage = await _sql_storage()
+    tmpdir = tempfile.mkdtemp(prefix='timeline-ical')
+    files = []
+    async for issue_data in storage.get_issue_datas():
+        events = []
+        for timeline in calculate_timelines(issue_data, display_name):
+            event = icalendar.Event()
+            event['uid'] = hash(timeline)
+            event['dtstart'] = timeline.start.strftime('%Y%m%dT%H%M%S')
+            event['dtend'] = timeline.end.strftime('%Y%m%dT%H%M%S')
+            if categories := _get_categories(timeline):
+                event['categories'] = ','.join(categories)
+            event['summary'] = '%s %s' % (timeline.issue, timeline.type)
+            events.append(event)
+        if len(events) > 0:
+            calendar = icalendar.Calendar()
+            calendar['X-WR-CALNAME'] = issue_data.issue
+            for event in events:
+                calendar.add_component(event)
+            icalfile = '%s.ical' % issue_data.issue
+            files.append(icalfile)
+            with open(Path(tmpdir) / icalfile, 'wb') as f:
+                f.write(calendar.to_ical())
+
+    return app.response_class(json_mapper.dumps({'dir': tmpdir, 'files': files}), mimetype="application/json")
+
+def _get_categories(timeline: Timeline) -> Sequence[str]:
+    categories = []
+    if timeline.type in (Timeline.TYPE_ASSIGNED, Timeline.TYPE_ASSIGNED_2ND_DEVELOPER):
+        categories.append('assigned')
+    if timeline.type == Timeline.TYPE_ASSIGNED_2ND_DEVELOPER:
+        categories.append('seconddeveloper')
+    if timeline.type == Timeline.TYPE_IN_PROGESS:
+        categories.append('inprogress')
+    return categories
 
 _storage = None
 

@@ -10,3 +10,5 @@ sqlalchemy-migrate
 aiosqlite
 
 alembic
+
+icalendar

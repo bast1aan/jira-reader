@@ -27,9 +27,9 @@ class IssueData:
     history: JSONable
     computed: datetime | None = None
 
-@dataclass
+@dataclass(frozen=True)
 class Timeline:
-    TYPE_ASSIGNED_2ND_DEVELOPER = 'assigned_2nd developer'
+    TYPE_ASSIGNED_2ND_DEVELOPER = 'assigned_2nd_developer'
     TYPE_ASSIGNED = 'assigned'
     TYPE_IN_PROGESS = 'in_progress'
     issue: str
