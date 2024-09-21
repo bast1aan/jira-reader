@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 from datetime import datetime
-from typing import Mapping, TypeVar, Iterator, Sequence
+from typing import Mapping, TypeVar, Iterator
 
 from .entities import IssueData, Timeline
 from .json_mapper import JsonMapper, into, asdataclass
@@ -132,13 +132,3 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
             yield Timeline(issue_data.issue, assignee, last_created, filter_display_name, '', Timeline.TYPE_ASSIGNED)
         if in_progress:
             yield Timeline(issue_data.issue, in_progress, last_created, filter_display_name, '', Timeline.TYPE_IN_PROGESS)
-
-def get_categories(timeline: Timeline) -> Sequence[str]:
-    categories = []
-    if timeline.type in (Timeline.TYPE_ASSIGNED, Timeline.TYPE_ASSIGNED_2ND_DEVELOPER):
-        categories.append('assigned')
-    if timeline.type == Timeline.TYPE_ASSIGNED_2ND_DEVELOPER:
-        categories.append('seconddeveloper')
-    if timeline.type == Timeline.TYPE_IN_PROGESS:
-        categories.append('inprogress')
-    return categories
