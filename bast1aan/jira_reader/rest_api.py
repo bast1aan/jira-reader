@@ -1,9 +1,6 @@
 import hashlib
 import json
-import tempfile
 from dataclasses import asdict
-from pathlib import Path
-from typing import Sequence
 
 import icalendar
 from flask import Flask, Response
@@ -14,7 +11,7 @@ from bast1aan.jira_reader.adapters.async_executor import AioHttpAdapter
 from bast1aan.jira_reader.adapters.sqlstorage import SQLStorage, Base
 from bast1aan.jira_reader.async_executor import Executor, ExecutorException
 from bast1aan.jira_reader.entities import Request, IssueData, Timeline
-from bast1aan.jira_reader.jira import RequestTicketData, ComputeTicketHistory, calculate_timelines
+from bast1aan.jira_reader.jira import RequestTicketData, ComputeTicketHistory, calculate_timelines, get_categories
 
 app = Flask(__name__)
 
@@ -72,7 +69,7 @@ async def timeline_as_ical(display_name: str) -> Response:
             event['uid'] = _hash(timeline)
             event['dtstart'] = timeline.start.strftime('%Y%m%dT%H%M%S')
             event['dtend'] = timeline.end.strftime('%Y%m%dT%H%M%S')
-            event.add('categories', _get_categories(timeline))
+            event.add('categories', get_categories(timeline))
             event['summary'] = '%s %s' % (timeline.issue, timeline.type)
             calendar.add_component(event)
 
@@ -81,16 +78,6 @@ async def timeline_as_ical(display_name: str) -> Response:
         mimetype="text/calendar",
         headers={'Content-Disposition': 'attachment; filename="jira-reader {}.ics"'.format(display_name)}
     )
-
-def _get_categories(timeline: Timeline) -> Sequence[str]:
-    categories = []
-    if timeline.type in (Timeline.TYPE_ASSIGNED, Timeline.TYPE_ASSIGNED_2ND_DEVELOPER):
-        categories.append('assigned')
-    if timeline.type == Timeline.TYPE_ASSIGNED_2ND_DEVELOPER:
-        categories.append('seconddeveloper')
-    if timeline.type == Timeline.TYPE_IN_PROGESS:
-        categories.append('inprogress')
-    return categories
 
 _storage = None
 
