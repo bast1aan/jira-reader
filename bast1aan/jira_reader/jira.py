@@ -114,7 +114,16 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
                     yield Timeline(issue_data.issue, in_progress, item.created, filter_display_name, '',
                                    Timeline.TYPE_IN_PROGESS)
                     in_progress = None
-                if action.toString == 'In Progress':
+                if action.toString == 'In Progress' and not in_progress:
+                    # TODO make dry
+                    if assignee:
+                        yield Timeline(issue_data.issue, assignee, item.created, filter_display_name, '',
+                                       Timeline.TYPE_ASSIGNED)
+                        assignee = None
+                    if second_developer:
+                        yield Timeline(issue_data.issue, second_developer, item.created, filter_display_name, '',
+                                       Timeline.TYPE_ASSIGNED_2ND_DEVELOPER)
+                        second_developer = None
                     in_progress = item.created
     if last_created:
         if second_developer:
