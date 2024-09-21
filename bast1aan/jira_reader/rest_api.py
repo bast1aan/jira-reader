@@ -69,7 +69,7 @@ async def timeline_as_ical(display_name: str) -> Response:
     async for issue_data in storage.get_issue_datas():
         for timeline in calculate_timelines(issue_data, display_name):
             event = icalendar.Event()
-            event['uid'] = hash(timeline)
+            event['uid'] = _hash(timeline)
             event['dtstart'] = timeline.start.strftime('%Y%m%dT%H%M%S')
             event['dtend'] = timeline.end.strftime('%Y%m%dT%H%M%S')
             event.add('categories', _get_categories(timeline))
@@ -101,3 +101,10 @@ async def _sql_storage() -> SQLStorage:
         _storage = SQLStorage(AlembicSQLInitializer(Base.metadata))
         await _storage.set_up()
     return _storage
+
+def _hash(timeline: Timeline) -> str:
+    return hashlib.md5(
+        json_mapper.dumps(
+            asdict(timeline)
+        ).encode('utf-8')
+    ).hexdigest()
