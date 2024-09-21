@@ -4,6 +4,7 @@ import os
 import unittest
 import socket
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 import aiohttp.web
 
@@ -11,6 +12,7 @@ import tempfile
 
 import bast1aan.jira_reader.adapters.async_executor
 import bast1aan.jira_reader.rest_api
+from bast1aan.jira_reader import entities
 from bast1aan.jira_reader.adapters.alembic.jira_reader import AlembicSQLInitializer
 from bast1aan.jira_reader.adapters.sqlstorage import Base
 
@@ -237,3 +239,54 @@ class JiraFetchDataTestCase(unittest.IsolatedAsyncioTestCase):
             flask_task.cancel()
             os.unlink(flask_sock)
 
+
+class TimelineTestCase(unittest.IsolatedAsyncioTestCase):
+    maxDiff = None
+
+    async def setup_issue_data(self):
+        with open(scriptdir('test_jira/test_request_ticket_history/test_expected.json'), 'rb') as f:
+            input = f.read()
+        await self.storage.save_issue_data(entities.IssueData(
+            issue='XYZ-987',
+            history=json.loads(input),
+            computed=datetime.now(),
+        ))
+
+    async def asyncSetUp(self):
+        await super().asyncSetUp()
+        self.storage = TestSQLStorage(AlembicSQLInitializer(Base.metadata))
+        await self.storage.set_up()
+        await self.storage.clean_up()
+        await self.setup_issue_data()
+        bast1aan.jira_reader.rest_api._storage = self.storage
+        self.tmpdir = tempfile.mkdtemp()
+
+    async def asyncTearDown(self):
+        os.rmdir(self.tmpdir)
+        bast1aan.jira_reader.adapters.async_executor.AioHttpAdapter.unix_socket = ''
+        await super().asyncTearDown()
+
+    @asynccontextmanager
+    async def get(self, url: str, socketpath: str = '') -> aiohttp.ClientResponse:
+        async with aiohttp.ClientSession(connector=aiohttp.UnixConnector(socketpath or self.socketpath)) as client, \
+                client.get(url, headers={'Accept': 'application/json'}) as response:
+            yield response
+
+
+    async def test_timeline(self):
+        with open(scriptdir('test_jira/timeline/expected.json'), 'rb') as f:
+            expected = f.read()
+
+        flask_sock = os.path.join(self.tmpdir, 'flask.sock')
+
+        flask_task = setup_flask(flask_sock)
+        await exists(flask_sock)
+
+        try:
+            async with self.get('http://flask/api/jira/timeline/Bastiaan%20Welmers', flask_sock) as response:
+                result = await response.read()
+                self.assertEqual(2, response.status // 100)
+                self.assertEqual(json.loads(expected), json.loads(result))
+        finally:
+            flask_task.cancel()
+            os.unlink(flask_sock)
