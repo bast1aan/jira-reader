@@ -1,16 +1,16 @@
-import hashlib
 import json
 from dataclasses import asdict
 
 from flask import Flask, Response
 
-from bast1aan.jira_reader import json_mapper, ical
+from bast1aan.jira_reader import json_mapper, calendar
 from bast1aan.jira_reader.adapters.alembic.jira_reader import AlembicSQLInitializer
 from bast1aan.jira_reader.adapters.async_executor import AioHttpAdapter
 from bast1aan.jira_reader.adapters.sqlstorage import SQLStorage, Base
 from bast1aan.jira_reader.async_executor import Executor, ExecutorException
-from bast1aan.jira_reader.entities import Request, IssueData, Timeline
-from bast1aan.jira_reader.jira import RequestTicketData, ComputeTicketHistory, calculate_timelines, get_categories
+from bast1aan.jira_reader.entities import Request, IssueData
+from bast1aan.jira_reader.ical import to_ical
+from bast1aan.jira_reader.jira import RequestTicketData, ComputeTicketHistory, calculate_timelines
 
 app = Flask(__name__)
 
@@ -60,21 +60,14 @@ async def timeline(display_name: str) -> Response:
 async def timeline_as_ical(display_name: str) -> Response:
     storage = await _sql_storage()
 
-    events = []
-    async for issue_data in storage.get_issue_datas():
-        for timeline in calculate_timelines(issue_data, display_name):
-            events.append(
-                ical.Event(
-                    id=_hash(timeline),
-                    start=timeline.start,
-                    end=timeline.end,
-                    categories=get_categories(timeline),
-                    summary='%s %s' % (timeline.issue, timeline.type)
-                )
-            )
+    events = [
+        calendar.event_from_timeline(timeline)
+            async for issue_data in storage.get_issue_datas()
+            for timeline in calculate_timelines(issue_data, display_name)
+    ]
 
-    ical_body = ical.to_ical(
-        ical.Calendar(
+    ical_body = to_ical(
+        calendar.Calendar(
             calendar_name='jira-reader %s' % display_name
         ),
         events
@@ -95,10 +88,3 @@ async def _sql_storage() -> SQLStorage:
         _storage = SQLStorage(AlembicSQLInitializer(Base.metadata))
         await _storage.set_up()
     return _storage
-
-def _hash(timeline: Timeline) -> str:
-    return hashlib.md5(
-        json_mapper.dumps(
-            asdict(timeline)
-        ).encode('utf-8')
-    ).hexdigest()

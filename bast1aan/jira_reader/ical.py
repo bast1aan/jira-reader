@@ -1,23 +1,11 @@
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Sequence
+""" implementation to create ical file from calendar objects """
+from typing import Iterable
 
 import icalendar
 
+from . import calendar
 
-@dataclass
-class Calendar:
-    calendar_name: str
-
-@dataclass
-class Event:
-    id: str
-    start: datetime
-    end: datetime
-    categories: Sequence[str]
-    summary: str
-
-def to_ical(calendar: Calendar, events: Sequence[Event]) -> bytes:
+def to_ical(calendar: calendar.Calendar, events: Iterable[calendar.Event]) -> bytes:
     ical_calendar = icalendar.Calendar()
     ical_calendar['X-WR-CALNAME'] = calendar.calendar_name
     for event in events:
