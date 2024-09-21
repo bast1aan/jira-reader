@@ -1,14 +1,14 @@
 import json
 import unittest
 
-from bast1aan.jira_reader import async_executor
+from bast1aan.jira_reader import async_executor, entities, json_mapper
 from bast1aan.jira_reader.async_executor import ExecutorException
-from bast1aan.jira_reader.jira import ComputeTicketHistory, RequestTicketData
+from bast1aan.jira_reader.jira import ComputeTicketHistory, RequestTicketData, calculate_timelines
 from tests.bast1aan.jira_reader.adapters.async_executor import TestHttpAdapter
 from tests.bast1aan.jira_reader.util import get_module_from_file, scriptdir
 
 
-class TestRequestTicketHistory(unittest.IsolatedAsyncioTestCase):
+class TestRequestTicketHistory(unittest.TestCase):
 
     def test_action(self):
         with open(scriptdir('test_jira/test_request_ticket_history/test_input.json'), 'r') as f:
@@ -66,3 +66,15 @@ class TestRequestTicketData(unittest.IsolatedAsyncioTestCase):
             result = await execute(action)
         self.assertEqual(exc_info.exception.args[0], 404)
 
+
+class CalculateTimelinesTestCase(unittest.TestCase):
+    def test_one(self):
+        input = get_module_from_file('test_jira/calculate_timelines/input.py')
+        expected = get_module_from_file('test_jira/calculate_timelines/expected.py')
+        issue_data = entities.IssueData(
+            issue='ABC-123',
+            history=json.loads(json_mapper.dumps(input.input))
+        )
+        timelines = tuple(calculate_timelines(issue_data, input.display_name))
+
+        self.assertEqual(timelines, expected.expected)
