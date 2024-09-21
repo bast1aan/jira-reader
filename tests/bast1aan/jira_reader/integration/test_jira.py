@@ -290,3 +290,30 @@ class TimelineTestCase(unittest.IsolatedAsyncioTestCase):
         finally:
             flask_task.cancel()
             os.unlink(flask_sock)
+
+    async def test_timeline_ical(self):
+        with open(scriptdir('test_jira/timeline/expected.ics'), 'rb') as f:
+            expected = f.read()
+
+        flask_sock = os.path.join(self.tmpdir, 'flask.sock')
+
+        flask_task = setup_flask(flask_sock)
+        await exists(flask_sock)
+
+        try:
+            async with self.get('http://flask/api/jira/timeline-ical/Bastiaan%20Welmers', flask_sock) as response:
+                response: aiohttp.ClientResponse
+                self.assertEqual(2, response.status // 100)
+                self.assertEqual(
+                    "text/calendar; charset=utf-8",
+                    response.headers['content-type']
+                )
+                self.assertEqual(
+                    'attachment; filename="jira-reader Bastiaan Welmers.ics"',
+                    response.headers['content-disposition']
+                )
+                body = await response.read()
+                self.assertEqual(expected, body)
+        finally:
+            flask_task.cancel()
+            os.unlink(flask_sock)
