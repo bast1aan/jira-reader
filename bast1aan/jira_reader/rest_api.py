@@ -2,10 +2,9 @@ import hashlib
 import json
 from dataclasses import asdict
 
-import icalendar
 from flask import Flask, Response
 
-from bast1aan.jira_reader import json_mapper
+from bast1aan.jira_reader import json_mapper, ical
 from bast1aan.jira_reader.adapters.alembic.jira_reader import AlembicSQLInitializer
 from bast1aan.jira_reader.adapters.async_executor import AioHttpAdapter
 from bast1aan.jira_reader.adapters.sqlstorage import SQLStorage, Base
@@ -60,21 +59,29 @@ async def timeline(display_name: str) -> Response:
 @app.route("/api/jira/timeline-ical/<display_name>")
 async def timeline_as_ical(display_name: str) -> Response:
     storage = await _sql_storage()
-    calendar = icalendar.Calendar()
-    calendar['X-WR-CALNAME'] = 'jira-reader %s' % display_name
 
+    events = []
     async for issue_data in storage.get_issue_datas():
         for timeline in calculate_timelines(issue_data, display_name):
-            event = icalendar.Event()
-            event['uid'] = _hash(timeline)
-            event['dtstart'] = timeline.start.strftime('%Y%m%dT%H%M%S')
-            event['dtend'] = timeline.end.strftime('%Y%m%dT%H%M%S')
-            event.add('categories', get_categories(timeline))
-            event['summary'] = '%s %s' % (timeline.issue, timeline.type)
-            calendar.add_component(event)
+            events.append(
+                ical.Event(
+                    id=_hash(timeline),
+                    start=timeline.start,
+                    end=timeline.end,
+                    categories=get_categories(timeline),
+                    summary='%s %s' % (timeline.issue, timeline.type)
+                )
+            )
+
+    ical_body = ical.to_ical(
+        ical.Calendar(
+            calendar_name='jira-reader %s' % display_name
+        ),
+        events
+    )
 
     return app.response_class(
-        response=calendar.to_ical(),
+        response=ical_body,
         mimetype="text/calendar",
         headers={'Content-Disposition': 'attachment; filename="jira-reader {}.ics"'.format(display_name)}
     )
