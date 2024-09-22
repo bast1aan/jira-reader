@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 from datetime import datetime
-from typing import Mapping, TypeVar, Iterator
+from typing import Mapping, TypeVar, Iterator, Iterable
 
 from .entities import IssueData, Timeline
 from .json_mapper import JsonMapper, into, asdataclass
@@ -85,50 +85,62 @@ class ComputeTicketHistory(JiraAction["ComputeTicketHistory.Response"]):
     })
 
 def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iterator[Timeline]:
-    second_developer: datetime = None
-    assignee: datetime = None
-    in_progress: datetime = None
-    last_created = None
+    class CalculateTimelines(Iterable[Timeline]):
+        _second_developer: datetime = None
+        _assignee: datetime = None
+        _in_progress: datetime = None
+        _last_created: datetime = None
 
-    history = asdataclass(ComputeTicketHistory.Response, issue_data.history)
-    items = sorted(history.items, key=lambda item: item.created)
+        def __init__(self, issue_data: IssueData, filter_display_name: str) -> None:
+            self.issue_data = issue_data
+            self.filter_display_name = filter_display_name
 
-    for item in items:
-        last_created = item.created
-        for action in item.actions:
-            action: ComputeTicketHistory.Response.Item.Action
-            if action.field == '2nd Developer':
-                if second_developer:
-                    yield Timeline(issue_data.issue, second_developer, item.created, filter_display_name, '', Timeline.TYPE_ASSIGNED_2ND_DEVELOPER)
-                    second_developer = None
-                if action.toString == filter_display_name:
-                    second_developer = item.created
-            if action.field == 'assignee':
-                if assignee:
-                    yield Timeline(issue_data.issue, assignee, item.created, filter_display_name, '', Timeline.TYPE_ASSIGNED)
-                    assignee = None
-                if action.toString == filter_display_name:
-                    assignee = item.created
-            if action.field == 'status' and (second_developer or assignee):
-                if action.fromString == 'In Progress' and in_progress:
-                    yield Timeline(issue_data.issue, in_progress, item.created, filter_display_name, '',
+        def __iter__(self) -> Iterator[Timeline]:
+            history = asdataclass(ComputeTicketHistory.Response, self.issue_data.history)
+            items = sorted(history.items, key=lambda item: item.created)
+            for item in items:
+                self._last_created = item.created
+                for action in item.actions:
+                    action: ComputeTicketHistory.Response.Item.Action
+                    if action.field == '2nd Developer':
+                        if self._second_developer:
+                            yield Timeline(self.issue_data.issue, self._second_developer, item.created, self.filter_display_name,
+                                           '', Timeline.TYPE_ASSIGNED_2ND_DEVELOPER)
+                            self._second_developer = None
+                        if action.toString == self.filter_display_name:
+                            self._second_developer = item.created
+                    if action.field == 'assignee':
+                        if self._assignee:
+                            yield Timeline(self.issue_data.issue, self._assignee, item.created, self.filter_display_name, '',
+                                           Timeline.TYPE_ASSIGNED)
+                            self._assignee = None
+                        if action.toString == self.filter_display_name:
+                            self._assignee = item.created
+                    if action.field == 'status' and (self._second_developer or self._assignee):
+                        if action.fromString == 'In Progress' and self._in_progress:
+                            yield Timeline(self.issue_data.issue, self._in_progress, item.created, self.filter_display_name, '',
+                                           Timeline.TYPE_IN_PROGESS)
+                            self._in_progress = None
+                        if action.toString == 'In Progress' and not self._in_progress:
+                            # TODO make dry
+                            if self._assignee:
+                                yield Timeline(self.issue_data.issue, self._assignee, item.created, self.filter_display_name, '',
+                                               Timeline.TYPE_ASSIGNED)
+                                self._assignee = None
+                            if self._second_developer:
+                                yield Timeline(self.issue_data.issue, self._second_developer, item.created,
+                                               self.filter_display_name, '',
+                                               Timeline.TYPE_ASSIGNED_2ND_DEVELOPER)
+                                self._second_developer = None
+                            self._in_progress = item.created
+            if self._last_created:
+                if self._second_developer:
+                    yield Timeline(self.issue_data.issue, self._second_developer, self._last_created, self.filter_display_name,
+                                   '', Timeline.TYPE_ASSIGNED_2ND_DEVELOPER)
+                if self._assignee:
+                    yield Timeline(self.issue_data.issue, self._assignee, self._last_created, self.filter_display_name, '',
+                                   Timeline.TYPE_ASSIGNED)
+                if self._in_progress:
+                    yield Timeline(self.issue_data.issue, self._in_progress, self._last_created, self.filter_display_name, '',
                                    Timeline.TYPE_IN_PROGESS)
-                    in_progress = None
-                if action.toString == 'In Progress' and not in_progress:
-                    # TODO make dry
-                    if assignee:
-                        yield Timeline(issue_data.issue, assignee, item.created, filter_display_name, '',
-                                       Timeline.TYPE_ASSIGNED)
-                        assignee = None
-                    if second_developer:
-                        yield Timeline(issue_data.issue, second_developer, item.created, filter_display_name, '',
-                                       Timeline.TYPE_ASSIGNED_2ND_DEVELOPER)
-                        second_developer = None
-                    in_progress = item.created
-    if last_created:
-        if second_developer:
-            yield Timeline(issue_data.issue, second_developer, last_created, filter_display_name, '', Timeline.TYPE_ASSIGNED_2ND_DEVELOPER)
-        if assignee:
-            yield Timeline(issue_data.issue, assignee, last_created, filter_display_name, '', Timeline.TYPE_ASSIGNED)
-        if in_progress:
-            yield Timeline(issue_data.issue, in_progress, last_created, filter_display_name, '', Timeline.TYPE_IN_PROGESS)
+    return iter(CalculateTimelines(issue_data, filter_display_name))
