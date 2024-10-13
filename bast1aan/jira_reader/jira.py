@@ -86,7 +86,6 @@ class ComputeTicketHistory(JiraAction["ComputeTicketHistory.Response"]):
     })
 
 def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iterator[Timeline]:
-    @dataclass(frozen=True)
     class State(Enum):
         IN_PROGRESS=a()
         SECOND_DEVELOPER=a()
