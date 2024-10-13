@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from enum import Enum, auto as a
@@ -234,15 +235,14 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
 
         def _process_state_changes(self) -> Iterator[Timeline]:
 
-            all_state_observers = {}
+            all_state_observers = defaultdict(list)
             for processor in self._processors:
                 for state_change_state, method in processor.get_state_observers().items():
-                    all_state_observers[state_change_state] = processor, method
+                    all_state_observers[state_change_state].append(method)
 
             for state_change, state, timestamp in self._state_changes:
-                if method := all_state_observers.get((state_change, state)):
-                    obj, func = method
-                    yield from func(obj, timestamp)
+                 for method in all_state_observers.get((state_change, state)):
+                    yield from method(timestamp)
             self._state_changes.clear()
             #
             # for processor in self._processors:
