@@ -176,6 +176,7 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
 
     class StatusProcessor(Processor):
         field_name = 'status'
+        _state_added: datetime | None = None
 
         def process(self, item: ComputeTicketHistory.Response.Item, action: ComputeTicketHistory.Response.Item.Action):
             if action.toString == 'In Progress':
