@@ -167,12 +167,12 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
     class SecondDeveloperProcessor(SimpleProcessor):
         field_name = '2nd Developer'
         state = State.SECOND_DEVELOPER
-        timeline_type: Timeline.TYPE_ASSIGNED_2ND_DEVELOPER
+        timeline_type = Timeline.TYPE_ASSIGNED_2ND_DEVELOPER
 
     class AssigneeProcessor(SimpleProcessor):
         field_name = 'assignee'
         state = State.ASSIGNED
-        timeline_type: Timeline.TYPE_ASSIGNED
+        timeline_type = Timeline.TYPE_ASSIGNED
 
     class StatusProcessor(Processor):
         field_name = 'status'
