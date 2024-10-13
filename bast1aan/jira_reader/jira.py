@@ -184,8 +184,11 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
             if action.fromString == 'In Progress':
                 self.main.change_state(no_longer, State.IN_PROGRESS, item.created)
 
+        def _assigned_or_2nddev(self) -> bool:
+            return State.ASSIGNED in self.main.states or State.SECOND_DEVELOPER in self.main.states
+
         def on_add_state(self, timestamp: datetime) -> Iterator[Timeline]:
-            if State.ASSIGNED in self.main.states or State.SECOND_DEVELOPER in self.main.states:
+            if self._assigned_or_2nddev():
                 self._state_added = timestamp
             yield from ()
 
@@ -199,10 +202,24 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
                     '',
                     Timeline.TYPE_IN_PROGESS
                 )
+                self._state_added = None
+
+        def on_assigned(self, timestamp: datetime) -> Iterator[Timeline]:
+            if State.IN_PROGRESS in self.main.states and not self._state_added:
+                self._state_added = timestamp
+            yield from ()
+
+        def on_unassigned(self, timestamp: datetime) -> Iterator[Timeline]:
+            if not self._assigned_or_2nddev():
+                yield from self.on_remove_state(timestamp)
 
         state_observers = {
             (to, State.IN_PROGRESS): on_add_state,
             (no_longer, State.IN_PROGRESS): on_remove_state,
+            (to, State.ASSIGNED): on_assigned,
+            (to, State.SECOND_DEVELOPER): on_assigned,
+            (no_longer, State.ASSIGNED): on_unassigned,
+            (no_longer, State.SECOND_DEVELOPER): on_unassigned,
         }
 
     class CalculateTimelines(Iterable[Timeline]):
