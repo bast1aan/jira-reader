@@ -103,11 +103,18 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
         def process(self, item: ComputeTicketHistory.Response.Item, action: ComputeTicketHistory.Response.Item.Action):
             ...
         def get_state_observers(self) -> Mapping[tuple[StateChange, State]: Callable]:
-            return self.state_observers
+            def create_wrapper(func):
+                # add self to classvar defined method references
+                return lambda *args, **kwargs: func(self, *args, **kwargs)
+            return {
+                st: create_wrapper(func)
+                for st, func in self.state_observers.items()
+            }
 
     class SimpleProcessor(Processor):
         state: ClassVar[State]
         timeline_type: ClassVar[str]
+        _state_added: datetime | None = None
         def process(self, item: ComputeTicketHistory.Response.Item, action: ComputeTicketHistory.Response.Item.Action):
             if action.toString == self.main.filter_display_name:
                 self.main.change_state(to, self.state, item.created)
