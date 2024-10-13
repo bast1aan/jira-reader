@@ -262,7 +262,7 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
                     for processor in self._processors:
                         if action.field == processor.field_name:
                             processor.process(item, action)
-                            yield from self._process_state_changes()
+                    yield from self._process_state_changes()
                     #       yield from
                     # if action.field == '2nd Developer':
                     #     if self._second_developer:
@@ -296,9 +296,9 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
                     #             self._second_developer = None
                     #         self._in_progress = item.created
             if last_created:
-                for state in self.states.keys():
+                for state in tuple(self.states.keys()):
                     self.change_state(no_longer, state, last_created)
-                    yield from self._process_state_changes()
+                yield from self._process_state_changes()
 
                 # if self._second_developer:
                 #     yield Timeline(self.issue_data.issue, self._second_developer, self._last_created, self.filter_display_name,
