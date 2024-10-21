@@ -123,7 +123,8 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
                 self.main.change_state(no_longer, self.state, item.created)
 
         def on_add_state(self, timestamp: datetime) -> Iterator[Timeline]:
-            self._state_added = timestamp
+            if State.IN_PROGRESS not in self.main.states:
+                self._state_added = timestamp
             yield from ()
 
         def on_remove_state(self, timestamp: datetime) -> Iterator[Timeline]:
