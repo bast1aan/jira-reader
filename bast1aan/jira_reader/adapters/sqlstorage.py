@@ -76,42 +76,6 @@ class IssueData(Base):
             history=json_mapper.dumps(entity.history),
         )
 
-class Timeline(Base):
-    __tablename__ = 'timeline'
-    __table_args__ = (
-        UniqueConstraint('issue', 'start', 'end'),
-    )
-    id: Mapped[int] = mapped_column(primary_key=True)
-    issue: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
-    start: Mapped[datetime] = mapped_column(DateTime(), index=True, nullable=False)
-    end: Mapped[datetime] = mapped_column(DateTime(), index=True, nullable=False)
-    type: Mapped[str] = mapped_column(String(255), nullable=False)
-    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), nullable=False)
-
-    @property
-    def entity(self) -> entities.Timeline:
-        return entities.Timeline(
-            issue=self.issue,
-            start=self.start,
-            end=self.end,
-            type=self.type,
-            display_name=self.display_name,
-            email=self.email,
-        )
-
-    @classmethod
-    def from_entity(cls, entity: entities.Timeline) -> Self:
-        return cls(
-            issue=entity.issue,
-            start=entity.start,
-            end=entity.end,
-            type=entity.type,
-            display_name=entity.display_name,
-            email=entity.email,
-        )
-
-
 class SQLInitializer(ABC):
     @abstractmethod
     async def __call__ (self, conn: AsyncConnection) -> None:...
@@ -163,9 +127,3 @@ class SQLStorage(Storage):
             async for model in await session.stream_scalars(stmt):
                 model: IssueData
                 yield model.entity
-
-    async def save_timeline(self, timeline: entities.Timeline) -> None:
-        async with self._async_session() as session:
-            model = Timeline.from_entity(timeline)
-            session.add(model)
-            await session.commit()
