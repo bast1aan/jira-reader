@@ -140,17 +140,9 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
                 self._state_added = None
 
         def to_in_progress(self, timestamp: datetime) -> Iterator[Timeline]:
-            # end 'assigned' timeline.
-            if self.state in self.main.states and self._state_added:
-                yield Timeline(
-                    self.main.issue_data.issue,
-                    self._state_added,
-                    timestamp,
-                    self.main.filter_display_name,
-                    '',
-                    self.timeline_type
-                )
-                self._state_added = None
+            # end 'assigned' timeline if tickets moves in progress.
+            if self.state in self.main.states:
+                yield from self.on_remove_state(timestamp)
 
         def no_longer_in_progress(self, timestamp: datetime) -> Iterator[Timeline]:
             # restart timeline for original state
