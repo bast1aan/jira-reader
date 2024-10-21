@@ -77,4 +77,4 @@ class CalculateTimelinesTestCase(unittest.TestCase):
         )
         timelines = tuple(calculate_timelines(issue_data, input.display_name))
 
-        self.assertEqual(timelines, expected.expected)
+        self.assertEqual(expected.expected, timelines)
