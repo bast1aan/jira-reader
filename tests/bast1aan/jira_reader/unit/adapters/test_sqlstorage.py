@@ -98,7 +98,10 @@ class TestIssueData(unittest.IsolatedAsyncioTestCase):
             computed=datetime.now(),
             history=[
                 {'some': 'object'},
-            ]
+            ],
+            issue_id=123,
+            project_id=45,
+            summary='We need to fix this',
         )
         await self.storage.save_issue_data(ent)
 
@@ -111,12 +114,18 @@ class TestIssueData(unittest.IsolatedAsyncioTestCase):
         req1 = entities.IssueData(
             issue='ABC-123',
             computed=now,
-            history=[]
+            history=[],
+            issue_id=0,
+            project_id=0,
+            summary='',
         )
         req2 = entities.IssueData(
             issue='ABC-123',
             computed=now,
-            history=[{'some': 'other'}]
+            history=[{'some': 'other'}],
+            issue_id=0,
+            project_id=0,
+            summary='',
         )
         self.assertNotEqual(req1, req2)
         await self.storage.save_issue_data(req1)
@@ -128,7 +137,10 @@ class TestIssueData(unittest.IsolatedAsyncioTestCase):
         req_url_none = entities.IssueData(
             issue=None,  # type: ignore
             computed=datetime.now(),
-            history=[]
+            history=[],
+            issue_id=0,
+            project_id=0,
+            summary='',
         )
         with self.assertRaises(sqlalchemy.exc.IntegrityError) as e:
             await self.storage.save_issue_data(req_url_none)
@@ -139,7 +151,10 @@ class TestIssueData(unittest.IsolatedAsyncioTestCase):
         req_url_none = entities.IssueData(
             issue='ABC-123',
             computed=None,  # type: ignore
-            history=[]
+            history=[],
+            issue_id=0,
+            project_id=0,
+            summary='',
         )
         await self.storage.save_issue_data(req_url_none)
 
@@ -151,7 +166,10 @@ class TestIssueData(unittest.IsolatedAsyncioTestCase):
         req_url_none = entities.IssueData(
             issue='ABC-123',
             computed=datetime.now(),
-            history=None
+            history=None,
+            issue_id=0,
+            project_id=0,
+            summary='',
         )
         await self.storage.save_issue_data(req_url_none)
 

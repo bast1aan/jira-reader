@@ -73,7 +73,10 @@ class CalculateTimelinesTestCase(unittest.TestCase):
         expected = get_module_from_file('test_jira/calculate_timelines/expected.py')
         issue_data = entities.IssueData(
             issue='ABC-123',
-            history=json.loads(json_mapper.dumps(input.input))
+            history=json.loads(json_mapper.dumps(input.input)),
+            issue_id = 123,
+            project_id = 45,
+            summary = 'Fix this',
         )
         timelines = tuple(calculate_timelines(issue_data, input.display_name))
 

@@ -42,9 +42,18 @@ async def compute_history(issue: str) -> Response:
         result = latest_request.result
         action = ComputeTicketHistory()
         history = action.get_response(result)
-        issue_data = IssueData(issue=issue, history=asdict(history))
+        issue_data = IssueData(
+            issue=issue,
+            history={
+                "items": [asdict(item) for item in history.items],
+                "comments": [asdict(comment) for comment in history.comments],
+            },
+            issue_id=history.issue_id,
+            project_id=history.project_id,
+            summary=history.summary,
+        )
         await storage.save_issue_data(issue_data)
-    return app.response_class(json_mapper.dumps(issue_data.history), mimetype="application/json")
+    return app.response_class(json_mapper.dumps(issue_data), mimetype="application/json")
 
 @app.route("/api/jira/timeline/<display_name>")
 async def timeline(display_name: str) -> Response:

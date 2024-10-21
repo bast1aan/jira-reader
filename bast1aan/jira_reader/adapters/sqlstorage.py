@@ -1,14 +1,13 @@
 import json
 from abc import ABC, abstractmethod
-from asyncio import Future
 from datetime import datetime
 from functools import cached_property, reduce
-from typing import Callable, Iterator, AsyncIterator
+from typing import AsyncIterator
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncConnection, AsyncSession, async_sessionmaker
 from typing_extensions import Self
 
-from sqlalchemy import String, Text, select, UniqueConstraint, DateTime, text
+from sqlalchemy import String, Text, select, UniqueConstraint, DateTime, Integer
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
 
 from bast1aan.jira_reader import settings, entities, Storage, json_mapper
@@ -59,6 +58,9 @@ class IssueData(Base):
     issue: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
     computed: Mapped[datetime] = mapped_column(DateTime(), index=True, nullable=False)
     history: Mapped[str] = mapped_column(Text(), nullable=False)
+    issue_id: Mapped[int] = mapped_column(Integer(), nullable=True)
+    project_id: Mapped[int] = mapped_column(Integer(), nullable=True)
+    summary: Mapped[str] = mapped_column(Text(), nullable=True)
 
     @property
     def entity(self) -> entities.IssueData:
@@ -66,6 +68,9 @@ class IssueData(Base):
             issue=self.issue,
             computed=self.computed,
             history=json.loads(self.history),
+            issue_id=self.issue_id,
+            project_id=self.project_id,
+            summary=self.summary,
         )
 
     @classmethod
@@ -74,6 +79,9 @@ class IssueData(Base):
             issue=entity.issue,
             computed=entity.computed or datetime.now(),
             history=json_mapper.dumps(entity.history),
+            issue_id=entity.issue_id,
+            project_id=entity.project_id,
+            summary=entity.summary,
         )
 
 class SQLInitializer(ABC):

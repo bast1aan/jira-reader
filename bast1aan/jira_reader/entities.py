@@ -25,6 +25,9 @@ class Request:
 class IssueData:
     issue: str
     history: JSONable
+    issue_id: int
+    project_id: int
+    summary: str
     computed: datetime | None = None
 
 @dataclass(frozen=True)

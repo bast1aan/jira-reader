@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from enum import Enum, auto as a
-from typing import Mapping, TypeVar, Iterator, Iterable, ClassVar, Callable, TypeAlias, Literal, Sequence
+from typing import Mapping, TypeVar, Iterator, Iterable, ClassVar, Callable, Literal, Sequence
 
 from .entities import IssueData, Timeline
 from .json_mapper import JsonMapper, into, asdataclass
@@ -54,6 +54,9 @@ class ComputeTicketHistory(JiraAction["ComputeTicketHistory.Response"]):
 
         items: list[Item]
         comments: list[Comment]
+        issue_id: int
+        project_id: int
+        summary: str
 
     URL = ''
     mapper = JsonMapper({
@@ -83,7 +86,14 @@ class ComputeTicketHistory(JiraAction["ComputeTicketHistory.Response"]):
                     "updated": into(Response.Comment).updated,
                 }, into(Response).comments]
             }
-        }
+        },
+        "id": into(Response).issue_id,
+        "fields": {
+            "project": {
+                "id": into(Response).project_id,
+            },
+            "summary": into(Response).summary,
+        },
     })
 
 def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iterator[Timeline]:
