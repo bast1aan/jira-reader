@@ -137,6 +137,7 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
                     '',
                     self.timeline_type
                 )
+                self._state_added = None
 
         def to_in_progress(self, timestamp: datetime) -> Iterator[Timeline]:
             # end 'assigned' timeline.
