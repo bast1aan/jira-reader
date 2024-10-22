@@ -64,9 +64,10 @@ class JsonMapper(Generic[T]):
 
     mapping: dict
 
-    def __init__(self, mapping: dict):
+    def __init__(self, mapping: dict, convert_null_to_empty_value=False):
         self.mapping = mapping
         self._init_kwargs = defaultdict(dict)
+        self._convert_null_to_empty_value = convert_null_to_empty_value
 
     def _build(self, cls: type) -> object:
         return cls(**self._init_kwargs.pop(cls))
@@ -83,6 +84,8 @@ class JsonMapper(Generic[T]):
                     return None
                 t = args[0] if args[1] is types.NoneType else args[1]
         if input is None:
+            if self._convert_null_to_empty_value:
+                return t()
             raise NoneTypeError(f'instance of {t} must not be None')
         return t(input)
 
