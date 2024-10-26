@@ -145,7 +145,8 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
                     timestamp,
                     self.main.filter_display_name,
                     '',
-                    self.timeline_type
+                    self.timeline_type,
+                    self.main.issue_data.summary,
                 )
                 self._state_added = None
 
@@ -204,7 +205,8 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
                     timestamp,
                     self.main.filter_display_name,
                     '',
-                    Timeline.TYPE_IN_PROGESS
+                    Timeline.TYPE_IN_PROGESS,
+                    self.main.issue_data.summary,
                 )
                 self._state_added = None
 
@@ -273,7 +275,15 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
 
         def __iter__(self) -> Iterator[Timeline]:
 
-            history = asdataclass(ComputeTicketHistory.Response, self.issue_data.history)
+            history = asdataclass(
+                ComputeTicketHistory.Response,
+                {
+                    **self.issue_data.history,
+                    'issue_id': self.issue_data.issue_id,
+                    'project_id': self.issue_data.project_id,
+                    'summary': self.issue_data.summary,
+                }
+            )
             items = sorted(history.items, key=lambda item: item.created)
             last_created = None
             for item in items:

@@ -15,6 +15,7 @@ def to_ical(calendar: calendar.Calendar, events: Iterable[calendar.Event]) -> by
         ical_event['dtend'] = event.end.strftime('%Y%m%dT%H%M%S')
         ical_event.add('categories', event.categories)
         ical_event['summary'] = event.summary
+        ical_event['url'] = event.url
 
         ical_calendar.add_component(ical_event)
     return ical_calendar.to_ical()

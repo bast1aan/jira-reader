@@ -4,7 +4,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import Sequence
 
-from bast1aan.jira_reader import json_mapper
+from bast1aan.jira_reader import json_mapper, settings
 from bast1aan.jira_reader.entities import Timeline
 
 
@@ -19,6 +19,7 @@ class Event:
     end: datetime
     categories: Sequence[str]
     summary: str
+    url: str
 
 def event_from_timeline(timeline: Timeline) -> Event:
     return Event(
@@ -26,7 +27,8 @@ def event_from_timeline(timeline: Timeline) -> Event:
         start=timeline.start,
         end=timeline.end,
         categories=_get_categories(timeline),
-        summary='%s %s' % (timeline.issue, timeline.type)
+        summary='%s %s (%s)' % (timeline.issue, timeline.issue_summary, timeline.type),
+        url='https://%s/browse/%s' % (settings.JIRA_HOST, timeline.issue),
     )
 
 def _hash(timeline: Timeline) -> str:

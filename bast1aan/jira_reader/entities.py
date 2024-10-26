@@ -41,3 +41,4 @@ class Timeline:
     display_name: str
     email: str
     type: str
+    issue_summary: str
