@@ -5,6 +5,7 @@ import unittest
 import socket
 from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import Literal, AsyncContextManager
 
 import aiohttp.web
 
@@ -15,6 +16,7 @@ import bast1aan.jira_reader.rest_api
 from bast1aan.jira_reader import entities
 from bast1aan.jira_reader.adapters.alembic.jira_reader import AlembicSQLInitializer
 from bast1aan.jira_reader.adapters.sqlstorage import Base
+from bast1aan.jira_reader.entities import Request
 
 from tests.bast1aan.jira_reader.adapters.setup_flask import setup_flask
 from tests.bast1aan.jira_reader.adapters.sqlstorage import TestSQLStorage
@@ -172,14 +174,21 @@ class JiraFetchDataTestCase(unittest.IsolatedAsyncioTestCase):
         await super().asyncTearDown()
 
     @asynccontextmanager
-    async def get(self, url: str, socketpath: str = '') -> aiohttp.ClientResponse:
+    async def request(self, method: Literal['GET', 'POST'], url: str, socketpath: str = '') -> aiohttp.ClientResponse:
         async with aiohttp.ClientSession(connector=aiohttp.UnixConnector(socketpath or self.socketpath)) as client, \
-                client.get(url, headers={'Accept': 'application/json'}) as response:
+                client.request(method, url, headers={'Accept': 'application/json'}) as response:
             yield response
 
-    async def test_fetch_data(self):
+    def get(self, url: str, socketpath: str = '') -> AsyncContextManager[aiohttp.ClientResponse]:
+        return self.request('GET', url, socketpath)
+
+    def post(self, url: str, socketpath: str = '') -> AsyncContextManager[aiohttp.ClientResponse]:
+        return self.request('POST', url, socketpath)
+
+    async def test_fetch_data_get(self):
         with open(scriptdir('test_jira/test_fetch_ticket_data/testdata.json'), 'rb') as f:
             expected = f.read()
+        await self.storage.save_request(Request(issue='ABC-123', result=json.loads(expected)))
 
         flask_sock = os.path.join(self.tmpdir, 'flask.sock')
 
@@ -191,11 +200,16 @@ class JiraFetchDataTestCase(unittest.IsolatedAsyncioTestCase):
                 result = await response.read()
                 self.assertEqual(2, response.status // 100)
                 self.assertEqual(json.loads(expected), json.loads(result))
+
+            self.assertEqual(len(self.requests), 0, 'No request should\'ve been executed')
         finally:
             flask_task.cancel()
             os.unlink(flask_sock)
 
-    async def test_fetch_saved_to_db(self):
+    async def test_fetch_post(self):
+        self.assertEqual(len(self.requests), 0)
+        self.assertIsNone(await self.storage.get_latest_request('ABC-123'))
+
         with open(scriptdir('test_jira/test_fetch_ticket_data/testdata.json'), 'rb') as f:
             expected = f.read()
 
@@ -205,19 +219,23 @@ class JiraFetchDataTestCase(unittest.IsolatedAsyncioTestCase):
         await exists(flask_sock)
 
         try:
-            async with self.get('http://flask/api/jira/fetch-data/ABC-123', flask_sock) as response:
+            async with self.post('http://flask/api/jira/fetch-data/ABC-123', flask_sock) as response:
                 result = await response.read()
                 self.assertEqual(2, response.status // 100)
                 self.assertEqual(json.loads(expected), json.loads(result))
-                latest_request = await self.storage.get_latest_request('ABC-123')
-                self.assertIsNotNone(latest_request)
-                self.assertEqual('ABC-123', latest_request.issue)
-                self.assertEqual(json.loads(expected), latest_request.result)
+
+            latest_request = await self.storage.get_latest_request('ABC-123')
+            self.assertIsNotNone(latest_request)
+            self.assertEqual('ABC-123', latest_request.issue)
+            self.assertEqual(json.loads(expected), latest_request.result)
+
+            self.assertEqual(len(self.requests), 1, 'Data should have been requested')
         finally:
             flask_task.cancel()
             os.unlink(flask_sock)
 
     async def test_jira_gives_404_does_not_crash(self):
+        self.assertIsNone(await self.storage.get_latest_request('ABC-123'))
 
         flask_sock = os.path.join(self.tmpdir, 'flask.sock')
 
@@ -225,7 +243,7 @@ class JiraFetchDataTestCase(unittest.IsolatedAsyncioTestCase):
         await exists(flask_sock)
 
         try:
-            async with self.get('http://flask/api/jira/fetch-data/ABC-404', flask_sock) as response:
+            async with self.post('http://flask/api/jira/fetch-data/ABC-404', flask_sock) as response:
                 result = await response.read()
                 self.assertEqual(404, response.status)
                 self.assertEqual(

@@ -15,19 +15,27 @@ from bast1aan.jira_reader.jira import RequestTicketData, ComputeTicketHistory, c
 app = Flask(__name__)
 
 @app.post("/api/jira/fetch-data/<issue>")
-async def fetch_data(issue: str) -> Response:
+async def fetch_data_post(issue: str) -> Response:
+    storage = await _sql_storage()
+    action = RequestTicketData(issue)
+    execute = Executor(AioHttpAdapter())
+    try:
+        result = await execute(action)
+        await storage.save_request(Request(issue=issue, result=result))
+    except ExecutorException as e:
+        return app.response_class(json.dumps(e.args[1]), mimetype="application/json", status=e.args[0])
+    return _fetch_data_result(result)
+
+@app.get("/api/jira/fetch-data/<issue>")
+async def fetch_data_get(issue: str) -> Response:
     storage = await _sql_storage()
     latest_request = await storage.get_latest_request(issue)
-    if latest_request:
-        result = latest_request.result
-    else:
-        action = RequestTicketData(issue)
-        execute = Executor(AioHttpAdapter())
-        try:
-            result = await execute(action)
-            await storage.save_request(Request(issue=issue, result=result))
-        except ExecutorException as e:
-            return app.response_class(json.dumps(e.args[1]), mimetype="application/json", status=e.args[0])
+    if not latest_request:
+        return app.response_class('{"error": "Issue not found in database"}', mimetype="application/json",
+                                  status=404)
+    return _fetch_data_result(latest_request.result)
+
+def _fetch_data_result(result: object) -> Response:
     return app.response_class(json.dumps(result), mimetype="application/json")
 
 @app.route("/api/jira/compute-history/<issue>")
