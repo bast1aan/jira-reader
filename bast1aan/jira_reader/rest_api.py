@@ -14,7 +14,7 @@ from bast1aan.jira_reader.jira import RequestTicketData, ComputeTicketHistory, c
 
 app = Flask(__name__)
 
-@app.route("/api/jira/fetch-data/<issue>")
+@app.post("/api/jira/fetch-data/<issue>")
 async def fetch_data(issue: str) -> Response:
     storage = await _sql_storage()
     latest_request = await storage.get_latest_request(issue)
