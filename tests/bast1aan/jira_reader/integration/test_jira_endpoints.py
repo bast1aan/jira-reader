@@ -143,10 +143,11 @@ class JiraFetchDataTestCase(unittest.IsolatedAsyncioTestCase):
 
         async def jira(request: aiohttp.web.Request) -> aiohttp.web.Response:
             self.requests.append(request)
-            return aiohttp.web.Response(
-                body=open(scriptdir('test_jira/test_fetch_ticket_data/testdata.json'), 'r').read(),
-                headers={'content-type': 'application/json'},
-            )
+            with open(scriptdir('test_jira/test_fetch_ticket_data/testdata.json'), 'r') as f:
+                return aiohttp.web.Response(
+                    body=f.read(),
+                    headers={'content-type': 'application/json'},
+                )
 
         async def jira_404(request: aiohttp.web.Request) -> aiohttp.web.Response:
             self.requests.append(request)
@@ -268,6 +269,9 @@ class TimelineTestCase(unittest.IsolatedAsyncioTestCase):
             issue='XYZ-987',
             history=json.loads(input),
             computed=datetime.now(),
+            issue_id=123,
+            project_id=456,
+            summary='XYZ Summary'
         ))
 
     async def asyncSetUp(self):
