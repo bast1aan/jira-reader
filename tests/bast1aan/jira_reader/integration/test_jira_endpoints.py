@@ -222,7 +222,7 @@ class JiraFetchDataTestCase(unittest.IsolatedAsyncioTestCase):
         try:
             async with self.post('http://flask/api/jira/fetch-data/ABC-123', flask_sock) as response:
                 result = await response.read()
-                self.assertEqual(2, response.status // 100)
+                self.assertEqual(201, response.status)
                 self.assertEqual(json.loads(expected), json.loads(result))
 
             latest_request = await self.storage.get_latest_request('ABC-123')

@@ -8,7 +8,7 @@ from bast1aan.jira_reader.adapters.alembic.jira_reader import AlembicSQLInitiali
 from bast1aan.jira_reader.adapters.async_executor import AioHttpAdapter
 from bast1aan.jira_reader.adapters.sqlstorage import SQLStorage, Base
 from bast1aan.jira_reader.async_executor import Executor, ExecutorException
-from bast1aan.jira_reader.entities import Request, IssueData
+from bast1aan.jira_reader.entities import Request, IssueData, JSONable
 from bast1aan.jira_reader.ical import to_ical
 from bast1aan.jira_reader.jira import RequestTicketData, ComputeTicketHistory, calculate_timelines
 
@@ -23,20 +23,19 @@ async def fetch_data_post(issue: str) -> Response:
         result = await execute(action)
         await storage.save_request(Request(issue=issue, result=result))
     except ExecutorException as e:
-        return app.response_class(json.dumps(e.args[1]), mimetype="application/json", status=e.args[0])
-    return _fetch_data_result(result)
+        return _result_response(e.args[1], status=e.args[0])
+    return _result_response(result, status=201)
 
 @app.get("/api/jira/fetch-data/<issue>")
 async def fetch_data_get(issue: str) -> Response:
     storage = await _sql_storage()
     latest_request = await storage.get_latest_request(issue)
     if not latest_request:
-        return app.response_class('{"error": "Issue not found in database"}', mimetype="application/json",
-                                  status=404)
-    return _fetch_data_result(latest_request.result)
+        return _result_response({"error": "Issue not found in database"}, status=404)
+    return _result_response(latest_request.result)
 
-def _fetch_data_result(result: object) -> Response:
-    return app.response_class(json.dumps(result), mimetype="application/json")
+def _result_response(result: JSONable, status: int = 200) -> Response:
+    return app.response_class(json.dumps(result), mimetype="application/json", status=status)
 
 @app.route("/api/jira/compute-history/<issue>")
 async def compute_history(issue: str) -> Response:
