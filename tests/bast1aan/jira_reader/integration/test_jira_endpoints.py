@@ -2,14 +2,10 @@ import asyncio
 import json
 import os
 import unittest
-import socket
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Literal, AsyncContextManager
 
 import aiohttp.web
-
-import tempfile
 
 import bast1aan.jira_reader.adapters.async_executor
 import bast1aan.jira_reader.rest_api
@@ -20,29 +16,18 @@ from bast1aan.jira_reader.entities import Request
 
 from tests.bast1aan.jira_reader.adapters.setup_flask import setup_flask
 from tests.bast1aan.jira_reader.adapters.sqlstorage import TestSQLStorage
+from tests.bast1aan.jira_reader.integration.base import AsyncHttpRequestMixin
 from tests.bast1aan.jira_reader.util import scriptdir, exists
 
 
-class JiraTestCase(unittest.IsolatedAsyncioTestCase):
+class JiraTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
     maxDiff = None
     requests: list[aiohttp.web.Request]
     app_task: asyncio.Task
 
-    def _setup_socket(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.socketpath = os.path.join(self.tmpdir, 'socket')
-        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.sock.bind(self.socketpath)
-
-    def _tear_down_socket(self):
-        os.remove(self.socketpath)
-        os.rmdir(self.tmpdir)
-
     async def asyncSetUp(self):
         await super().asyncSetUp()
         self.requests = []
-
-        self._setup_socket()
 
         async def jira(request: aiohttp.web.Request) -> aiohttp.web.Response:
             self.requests.append(request)
@@ -63,7 +48,6 @@ class JiraTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         self.app_task.cancel()
-        self._tear_down_socket()
         bast1aan.jira_reader.adapters.async_executor.AioHttpAdapter.unix_socket = ''
         await super().asyncTearDown()
 
@@ -120,26 +104,14 @@ class JiraTestCase(unittest.IsolatedAsyncioTestCase):
             flask_task.cancel()
             os.unlink(flask_sock)
 
-class JiraFetchDataTestCase(unittest.IsolatedAsyncioTestCase):
+class JiraFetchDataTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
     maxDiff = None
     requests: list[aiohttp.web.Request]
     app_task: asyncio.Task
 
-    def _setup_socket(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.socketpath = os.path.join(self.tmpdir, 'socket')
-        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.sock.bind(self.socketpath)
-
-    def _tear_down_socket(self):
-        os.remove(self.socketpath)
-        os.rmdir(self.tmpdir)
-
     async def asyncSetUp(self):
         await super().asyncSetUp()
         self.requests = []
-
-        self._setup_socket()
 
         async def jira(request: aiohttp.web.Request) -> aiohttp.web.Response:
             self.requests.append(request)
@@ -170,21 +142,8 @@ class JiraFetchDataTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         self.app_task.cancel()
-        self._tear_down_socket()
         bast1aan.jira_reader.adapters.async_executor.AioHttpAdapter.unix_socket = ''
         await super().asyncTearDown()
-
-    @asynccontextmanager
-    async def request(self, method: Literal['GET', 'POST'], url: str, socketpath: str = '') -> aiohttp.ClientResponse:
-        async with aiohttp.ClientSession(connector=aiohttp.UnixConnector(socketpath or self.socketpath)) as client, \
-                client.request(method, url, headers={'Accept': 'application/json'}) as response:
-            yield response
-
-    def get(self, url: str, socketpath: str = '') -> AsyncContextManager[aiohttp.ClientResponse]:
-        return self.request('GET', url, socketpath)
-
-    def post(self, url: str, socketpath: str = '') -> AsyncContextManager[aiohttp.ClientResponse]:
-        return self.request('POST', url, socketpath)
 
     async def test_fetch_data_get(self):
         with open(scriptdir('test_jira/test_fetch_ticket_data/testdata.json'), 'rb') as f:
@@ -259,7 +218,7 @@ class JiraFetchDataTestCase(unittest.IsolatedAsyncioTestCase):
             os.unlink(flask_sock)
 
 
-class TimelineTestCase(unittest.IsolatedAsyncioTestCase):
+class TimelineTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
     maxDiff = None
 
     async def setup_issue_data(self):
@@ -281,19 +240,10 @@ class TimelineTestCase(unittest.IsolatedAsyncioTestCase):
         await self.storage.clean_up()
         await self.setup_issue_data()
         bast1aan.jira_reader.rest_api._storage = self.storage
-        self.tmpdir = tempfile.mkdtemp()
 
     async def asyncTearDown(self):
-        os.rmdir(self.tmpdir)
         bast1aan.jira_reader.adapters.async_executor.AioHttpAdapter.unix_socket = ''
         await super().asyncTearDown()
-
-    @asynccontextmanager
-    async def get(self, url: str, socketpath: str = '') -> aiohttp.ClientResponse:
-        async with aiohttp.ClientSession(connector=aiohttp.UnixConnector(socketpath or self.socketpath)) as client, \
-                client.get(url, headers={'Accept': 'application/json'}) as response:
-            yield response
-
 
     async def test_timeline(self):
         with open(scriptdir('test_jira/timeline/expected.json'), 'rb') as f:
