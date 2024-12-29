@@ -41,9 +41,9 @@ def _result_response(result: JSONable, status: int = 200) -> Response:
 async def compute_history(issue: str) -> Response:
     storage = await _sql_storage()
     issue_data = await storage.get_issue_data(issue)
+    latest_request = await storage.get_latest_request(issue)
     created = False
-    if not issue_data:
-        latest_request = await storage.get_latest_request(issue)
+    if not issue_data or (latest_request and latest_request.requested > issue_data.computed):
         if not latest_request:
             return app.response_class('{"error": "Issue not found in database"}', mimetype="application/json",
                                       status=404)

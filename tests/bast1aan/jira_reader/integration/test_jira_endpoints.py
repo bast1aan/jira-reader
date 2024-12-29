@@ -50,10 +50,10 @@ class JiraTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
         bast1aan.jira_reader.adapters.async_executor.AioHttpAdapter.unix_socket = ''
         await super().asyncTearDown()
 
-    async def _save_abc123(self) -> None:
+    async def _save_abc123(self, now: datetime | None = None) -> None:
         with open(scriptdir('test_jira/test_fetch_ticket_data/testdata.json'), 'rb') as f:
             request_data = f.read()
-        await self.storage.save_request(Request(issue='ABC-123', result=json.loads(request_data)))
+        await self.storage.save_request(Request(issue='ABC-123', result=json.loads(request_data), requested=now))
 
     async def test_test(self):
         with open(scriptdir('test_jira/test_request_ticket_history/test_input.json'), 'rb') as f:
@@ -63,7 +63,7 @@ class JiraTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
             self.assertEqual(json.loads(result), json.loads(expected))
 
     async def test_compute_history(self):
-        await self._save_abc123()
+        await self._save_abc123(now=datetime(year=2024, month=12, day=29, hour=19, minute=29, second=4))
 
         with open(scriptdir('test_jira/test_request_ticket_history/test_expected.json'), 'rb') as f:
             expected = f.read()
@@ -81,12 +81,59 @@ class JiraTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(201, response.status)
                 self.assertEqual(json.loads(expected), json.loads(result))
                 self.assertEqual(1, len([_ async for _ in self.storage.get_issue_datas()]))
+        finally:
+            flask_task.cancel()
+            os.unlink(flask_sock)
+
+        flask_task = setup_flask(flask_sock, now=datetime(year=2024, month=12, day=29, hour=19, minute=29, second=6))
+        await exists(flask_sock)
+
+        try:
             with self.subTest('Test a second time, the data should not be recreated in the db'):
                 async with self.post('http://flask/api/jira/compute-history/ABC-123', flask_sock) as response:
                     result = await response.read()
                     self.assertEqual(200, response.status)
                     self.assertEqual(json.loads(expected), json.loads(result))
                     self.assertEqual(1, len([_ async for _ in self.storage.get_issue_datas()]))
+        finally:
+            flask_task.cancel()
+            os.unlink(flask_sock)
+
+    async def test_history_is_recomputed_if_new_request_has_arrived(self):
+        await self._save_abc123(now=datetime(year=2024, month=12, day=29, hour=19, minute=29, second=4))
+
+        with open(scriptdir('test_jira/test_request_ticket_history/test_expected.json'), 'rb') as f:
+            expected = f.read()
+
+        flask_sock = os.path.join(self.tmpdir, 'flask.sock')
+
+        flask_task = setup_flask(flask_sock, now=datetime(year=2024, month=12, day=29, hour=19, minute=29, second=5))
+        await exists(flask_sock)
+
+        self.assertEqual(0, len([_ async for _ in self.storage.get_issue_datas()]))
+
+        try:
+            async with self.post('http://flask/api/jira/compute-history/ABC-123', flask_sock) as response:
+                result = await response.read()
+                self.assertEqual(201, response.status)
+                self.assertEqual(json.loads(expected), json.loads(result))
+                self.assertEqual(1, len([_ async for _ in self.storage.get_issue_datas()]))
+        finally:
+            flask_task.cancel()
+            os.unlink(flask_sock)
+
+        await self._save_abc123(now=datetime(year=2024, month=12, day=29, hour=19, minute=29, second=6))
+
+        flask_task = setup_flask(flask_sock, now=datetime(year=2024, month=12, day=29, hour=19, minute=29, second=7))
+        await exists(flask_sock)
+
+        try:
+            with self.subTest('Test a second time, the data should be recreated in the db'):
+                async with self.post('http://flask/api/jira/compute-history/ABC-123', flask_sock) as response:
+                    result = await response.read()
+                    self.assertEqual(201, response.status)
+                    self.assertEqual({**json.loads(expected), 'computed': '2024-12-29T19:29:07'}, json.loads(result))
+                    self.assertEqual(2, len([_ async for _ in self.storage.get_issue_datas()]))
         finally:
             flask_task.cancel()
             os.unlink(flask_sock)
