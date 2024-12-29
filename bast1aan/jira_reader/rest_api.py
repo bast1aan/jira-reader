@@ -59,7 +59,7 @@ async def compute_history(issue: str) -> Response:
             project_id=history.project_id,
             summary=history.summary,
         )
-        await storage.save_issue_data(issue_data)
+        issue_data = await storage.save_issue_data(issue_data)
     return app.response_class(json_mapper.dumps(issue_data), mimetype="application/json")
 
 @app.route("/api/jira/timeline/<display_name>")

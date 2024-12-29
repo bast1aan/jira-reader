@@ -124,11 +124,12 @@ class SQLStorage(Storage):
             model = await session.scalar(stmt)
             return model.entity if model else None
 
-    async def save_issue_data(self, data: entities.IssueData) -> None:
+    async def save_issue_data(self, data: entities.IssueData) -> entities.IssueData:
         async with self._async_session() as session:
             data_model = IssueData.from_entity(data)
             session.add(data_model)
             await session.commit()
+            return data_model.entity
 
     async def get_issue_datas(self) -> AsyncIterator[entities.IssueData]:
         async with self._async_session() as session:
