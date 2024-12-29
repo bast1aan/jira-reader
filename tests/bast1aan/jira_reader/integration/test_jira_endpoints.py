@@ -73,11 +73,20 @@ class JiraTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
         flask_task = setup_flask(flask_sock, now=datetime(year=2024, month=12, day=29, hour=19, minute=29, second=5))
         await exists(flask_sock)
 
+        self.assertEqual(0, len([_ async for _ in self.storage.get_issue_datas()]))
+
         try:
             async with self.post('http://flask/api/jira/compute-history/ABC-123', flask_sock) as response:
                 result = await response.read()
-                self.assertEqual(2, response.status // 100)
+                self.assertEqual(201, response.status)
                 self.assertEqual(json.loads(expected), json.loads(result))
+                self.assertEqual(1, len([_ async for _ in self.storage.get_issue_datas()]))
+            with self.subTest('Test a second time, the data should not be recreated in the db'):
+                async with self.post('http://flask/api/jira/compute-history/ABC-123', flask_sock) as response:
+                    result = await response.read()
+                    self.assertEqual(200, response.status)
+                    self.assertEqual(json.loads(expected), json.loads(result))
+                    self.assertEqual(1, len([_ async for _ in self.storage.get_issue_datas()]))
         finally:
             flask_task.cancel()
             os.unlink(flask_sock)

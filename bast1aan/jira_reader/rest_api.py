@@ -41,6 +41,7 @@ def _result_response(result: JSONable, status: int = 200) -> Response:
 async def compute_history(issue: str) -> Response:
     storage = await _sql_storage()
     issue_data = await storage.get_issue_data(issue)
+    created = False
     if not issue_data:
         latest_request = await storage.get_latest_request(issue)
         if not latest_request:
@@ -60,7 +61,8 @@ async def compute_history(issue: str) -> Response:
             summary=history.summary,
         )
         issue_data = await storage.save_issue_data(issue_data)
-    return app.response_class(json_mapper.dumps(issue_data), mimetype="application/json")
+        created = True
+    return app.response_class(json_mapper.dumps(issue_data), status=201 if created else 200, mimetype="application/json")
 
 @app.route("/api/jira/timeline/<display_name>")
 async def timeline(display_name: str) -> Response:
