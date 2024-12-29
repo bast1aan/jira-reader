@@ -74,10 +74,25 @@ class JiraTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
         await exists(flask_sock)
 
         try:
-            async with self.get('http://flask/api/jira/compute-history/ABC-123', flask_sock) as response:
+            async with self.post('http://flask/api/jira/compute-history/ABC-123', flask_sock) as response:
                 result = await response.read()
                 self.assertEqual(2, response.status // 100)
                 self.assertEqual(json.loads(expected), json.loads(result))
+        finally:
+            flask_task.cancel()
+            os.unlink(flask_sock)
+
+    async def test_compute_history_without_item_requested_before_returns_404(self):
+        flask_sock = os.path.join(self.tmpdir, 'flask.sock')
+
+        flask_task = setup_flask(flask_sock)
+        await exists(flask_sock)
+
+        try:
+            async with self.post('http://flask/api/jira/compute-history/ABC-123', flask_sock) as response:
+                result = await response.read()
+                self.assertEqual(404, response.status)
+                self.assertEqual({'error': 'Issue not found in database'}, json.loads(result))
         finally:
             flask_task.cancel()
             os.unlink(flask_sock)

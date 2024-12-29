@@ -37,7 +37,7 @@ async def fetch_data_get(issue: str) -> Response:
 def _result_response(result: JSONable, status: int = 200) -> Response:
     return app.response_class(json.dumps(result), mimetype="application/json", status=status)
 
-@app.route("/api/jira/compute-history/<issue>")
+@app.post("/api/jira/compute-history/<issue>")
 async def compute_history(issue: str) -> Response:
     storage = await _sql_storage()
     issue_data = await storage.get_issue_data(issue)
