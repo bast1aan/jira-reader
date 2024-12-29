@@ -2,7 +2,6 @@ import asyncio
 import json
 import os
 import unittest
-from contextlib import asynccontextmanager
 from datetime import datetime
 
 import aiohttp.web
@@ -51,11 +50,10 @@ class JiraTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
         bast1aan.jira_reader.adapters.async_executor.AioHttpAdapter.unix_socket = ''
         await super().asyncTearDown()
 
-    @asynccontextmanager
-    async def get(self, url: str, socketpath: str = '') -> aiohttp.ClientResponse:
-        async with aiohttp.ClientSession(connector=aiohttp.UnixConnector(socketpath or self.socketpath)) as client, \
-                client.get(url, headers={'Accept': 'application/json'}) as response:
-            yield response
+    async def _save_abc123(self) -> None:
+        with open(scriptdir('test_jira/test_fetch_ticket_data/testdata.json'), 'rb') as f:
+            request_data = f.read()
+        await self.storage.save_request(Request(issue='ABC-123', result=json.loads(request_data)))
 
     async def test_test(self):
         with open(scriptdir('test_jira/test_request_ticket_history/test_input.json'), 'rb') as f:
@@ -64,7 +62,9 @@ class JiraTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
             result = await response.read()
             self.assertEqual(json.loads(result), json.loads(expected))
 
-    async def test_jira(self):
+    async def test_compute_history(self):
+        await self._save_abc123()
+
         with open(scriptdir('test_jira/test_request_ticket_history/test_expected.json'), 'rb') as f:
             expected = f.read()
 
@@ -93,28 +93,6 @@ class JiraTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
                 result = await response.read()
                 self.assertEqual(404, response.status)
                 self.assertEqual({'error': 'Issue not found in database'}, json.loads(result))
-        finally:
-            flask_task.cancel()
-            os.unlink(flask_sock)
-
-    async def test_jira_request_saved_to_db(self):
-        with open(scriptdir('test_jira/test_request_ticket_history/test_expected.json'), 'rb') as f:
-            expected = f.read()
-
-        flask_sock = os.path.join(self.tmpdir, 'flask.sock')
-
-        flask_task = setup_flask(flask_sock)
-        await exists(flask_sock)
-
-        try:
-            async with self.get('http://flask/api/jira/compute-history/ABC-123', flask_sock) as response:
-                result = await response.read()
-                self.assertEqual(2, response.status // 100)
-                self.assertEqual(json.loads(expected), json.loads(result))
-                latest_request = await self.storage.get_latest_request('ABC-123')
-                self.assertIsNotNone(latest_request)
-                self.assertEqual('ABC-123', latest_request.issue)
-                self.assertEqual(json.loads(expected), latest_request.result)
         finally:
             flask_task.cancel()
             os.unlink(flask_sock)
@@ -241,7 +219,7 @@ class TimelineTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
             input = f.read()
         await self.storage.save_issue_data(entities.IssueData(
             issue='XYZ-987',
-            history=json.loads(input),
+            history=json.loads(input)['history'],
             computed=datetime.now(),
             issue_id=123,
             project_id=456,
