@@ -70,7 +70,7 @@ class JiraTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
 
         flask_sock = os.path.join(self.tmpdir, 'flask.sock')
 
-        flask_task = setup_flask(flask_sock)
+        flask_task = setup_flask(flask_sock, now=datetime(year=2024, month=12, day=29, hour=19, minute=29, second=5))
         await exists(flask_sock)
 
         try:

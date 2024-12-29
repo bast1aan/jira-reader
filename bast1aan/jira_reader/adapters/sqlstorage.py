@@ -12,6 +12,7 @@ from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
 
 from bast1aan.jira_reader import settings, entities, Storage, json_mapper
 
+from . import datetime as datetime_adapter
 
 def _get_aio_url() -> str:
     url: str = settings.SQLSTORAGE_SQLITE
@@ -77,7 +78,7 @@ class IssueData(Base):
     def from_entity(cls, entity: entities.IssueData) -> Self:
         return cls(
             issue=entity.issue,
-            computed=entity.computed or datetime.now(),
+            computed=entity.computed or datetime_adapter.now(),
             history=json_mapper.dumps(entity.history),
             issue_id=entity.issue_id,
             project_id=entity.project_id,
