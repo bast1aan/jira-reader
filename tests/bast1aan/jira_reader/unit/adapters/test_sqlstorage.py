@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import sqlalchemy.exc
 
@@ -176,3 +176,40 @@ class TestIssueData(unittest.IsolatedAsyncioTestCase):
         saved_req = await self.storage.get_issue_data('ABC-123')
 
         self.assertIsNone(saved_req.history)
+
+    async def test_get_recent_issue_datas(self) -> None:
+
+        now = datetime.now()
+        yesterday = now - timedelta(days=1)
+
+        abc123_yesterday = entities.IssueData(
+            issue='ABC-123',
+            computed=yesterday,
+            history=[],
+            issue_id=0,
+            project_id=0,
+            summary='yesterday',
+        )
+        abc123_today = entities.IssueData(
+            issue='ABC-123',
+            computed=now,
+            history=[{'some': 'other'}],
+            issue_id=0,
+            project_id=0,
+            summary='today',
+        )
+        abc456_today = entities.IssueData(
+            issue='ABC-456',
+            computed=now,
+            history=[{'some': 'other'}],
+            issue_id=0,
+            project_id=0,
+            summary='today',
+        )
+        await self.storage.save_issue_data(abc123_yesterday)
+        await self.storage.save_issue_data(abc123_today)
+        await self.storage.save_issue_data(abc456_today)
+
+        result = [issue_data async for issue_data in self.storage.get_recent_issue_datas()]
+
+        self.assertCountEqual([abc123_today, abc456_today], result)

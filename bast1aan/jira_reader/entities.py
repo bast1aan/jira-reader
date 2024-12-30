@@ -2,6 +2,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
+from typing import AsyncIterator
 
 JSONable = list | dict | str | None
 
@@ -14,6 +15,10 @@ class Storage(ABC):
     async def get_issue_data(self, issue: str) -> IssueData: ...
     @abstractmethod
     async def save_issue_data(self, data: IssueData) -> IssueData: ...
+    @abstractmethod
+    async def get_issue_datas(self) -> AsyncIterator[IssueData]: ...
+    @abstractmethod
+    async def get_recent_issue_datas(self) -> AsyncIterator[IssueData]: ...
 
 @dataclass
 class Request:

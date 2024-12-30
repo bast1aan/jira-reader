@@ -7,7 +7,7 @@ from typing import AsyncIterator
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine, AsyncConnection, AsyncSession, async_sessionmaker
 from typing_extensions import Self
 
-from sqlalchemy import String, Text, select, UniqueConstraint, DateTime, Integer
+from sqlalchemy import String, Text, select, UniqueConstraint, DateTime, Integer, text
 from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
 
 from bast1aan.jira_reader import settings, entities, Storage, json_mapper
@@ -134,6 +134,18 @@ class SQLStorage(Storage):
     async def get_issue_datas(self) -> AsyncIterator[entities.IssueData]:
         async with self._async_session() as session:
             stmt = select(IssueData).order_by(IssueData.id.asc())
+            async for model in await session.stream_scalars(stmt):
+                model: IssueData
+                yield model.entity
+
+    async def get_recent_issue_datas(self) -> AsyncIterator[entities.IssueData]:
+        sql = """SELECT issue_data.* FROM issue_data 
+        INNER JOIN (SELECT id, issue, MAX(computed) AS max_computed FROM issue_data GROUP BY issue) latest
+            ON issue_data.id = latest.id
+        ORDER BY issue_data.id ASC"""
+
+        async with self._async_session() as session:
+            stmt = select(IssueData).from_statement(text(sql))
             async for model in await session.stream_scalars(stmt):
                 model: IssueData
                 yield model.entity
