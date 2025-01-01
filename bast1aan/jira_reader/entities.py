@@ -40,6 +40,7 @@ class Timeline:
     TYPE_ASSIGNED_2ND_DEVELOPER = 'assigned_2nd_developer'
     TYPE_ASSIGNED = 'assigned'
     TYPE_IN_PROGESS = 'in_progress'
+    TYPE_WRITING_COMMENT = 'writing_comment'
     issue: str
     start: datetime
     end: datetime

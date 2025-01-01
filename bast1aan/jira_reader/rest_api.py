@@ -69,7 +69,7 @@ async def timeline(display_name: str) -> Response:
     storage = await _sql_storage()
     results = [
         timeline
-            async for issue_data in storage.get_issue_datas()
+            async for issue_data in storage.get_recent_issue_datas()
             for timeline in calculate_timelines(issue_data, display_name)
     ]
     return app.response_class(json_mapper.dumps({'results': results}), mimetype="application/json")
@@ -80,7 +80,7 @@ async def timeline_as_ical(display_name: str) -> Response:
 
     events = [
         calendar.event_from_timeline(timeline)
-            async for issue_data in storage.get_issue_datas()
+            async for issue_data in storage.get_recent_issue_datas()
             for timeline in calculate_timelines(issue_data, display_name)
     ]
 

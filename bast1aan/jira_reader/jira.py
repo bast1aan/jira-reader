@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum, auto as a
-from typing import Mapping, TypeVar, Iterator, Iterable, ClassVar, Callable, Literal, Sequence
+from itertools import chain
+from typing import Mapping, TypeVar, Iterator, Iterable, ClassVar, Callable, Literal, Sequence, Final
 
 from .entities import IssueData, Timeline
 from .json_mapper import JsonMapper, into, asdataclass
@@ -101,10 +102,40 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
         IN_PROGRESS=a()
         SECOND_DEVELOPER=a()
         ASSIGNED=a()
+        WRITING_COMMENT=a()
 
     StateChange = Literal[True] | Literal[False]
-    to: StateChange = True
-    no_longer: StateChange = False
+    to: Final[StateChange] = True
+    no_longer: Final[StateChange] = False
+
+    def assume_current_timezone_for_naive_datetime(input: datetime) -> datetime:
+        # this could be wrong because of daylight saving time
+        return input.replace(tzinfo=datetime.now().astimezone().tzinfo)
+
+    def convert_comment_to_items_with_actions(comment: ComputeTicketHistory.Response.Comment) -> Iterable[ComputeTicketHistory.Response.Item]:
+        return ComputeTicketHistory.Response.Item(
+            byEmailAddress=comment.byEmailAddress,
+            byDisplayName=comment.byDisplayName,
+            created=assume_current_timezone_for_naive_datetime(comment.created),
+            actions=[
+                ComputeTicketHistory.Response.Item.Action(
+                    field='comment',
+                    fromString='',
+                    toString=comment.byDisplayName
+                ),
+            ]
+        ), ComputeTicketHistory.Response.Item(
+            byEmailAddress=comment.byEmailAddress,
+            byDisplayName=comment.byDisplayName,
+            created=assume_current_timezone_for_naive_datetime(comment.created) + timedelta(minutes=15),
+            actions=[
+                ComputeTicketHistory.Response.Item.Action(
+                    field='comment',
+                    fromString=comment.byDisplayName,
+                    toString=''
+                ),
+            ]
+        )
 
     class Processor:
         state_observers: ClassVar[Mapping[tuple[StateChange, State]: Callable]]
@@ -179,6 +210,11 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
         state = State.ASSIGNED
         timeline_type = Timeline.TYPE_ASSIGNED
 
+    class WritingCommentProcessor(SimpleProcessor):
+        field_name = 'comment'
+        state = State.WRITING_COMMENT
+        timeline_type = Timeline.TYPE_WRITING_COMMENT
+
     class StatusProcessor(Processor):
         field_name = 'status'
         _state_added: datetime | None = None
@@ -233,6 +269,7 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
             SecondDeveloperProcessor,
             AssigneeProcessor,
             StatusProcessor,
+            WritingCommentProcessor,
         )
         _states: dict[State, datetime]
         _state_changes: list[tuple[StateChange, State, datetime]]
@@ -284,7 +321,10 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
                     'summary': self.issue_data.summary,
                 }
             )
-            items = sorted(history.items, key=lambda item: item.created)
+
+            comment_items_iterators = (convert_comment_to_items_with_actions(comment) for comment in history.comments)
+
+            items = sorted(chain(history.items, *comment_items_iterators), key=lambda item: item.created)
             last_created = None
             for item in items:
                 last_created = item.created
