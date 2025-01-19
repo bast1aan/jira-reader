@@ -43,6 +43,7 @@ class Timeline:
     TYPE_ASSIGNED = 'assigned'
     TYPE_IN_PROGESS = 'in_progress'
     TYPE_WRITING_COMMENT = 'writing_comment'
+    TYPE_CREATING_TICKET = 'creating_ticket'
     issue: str
     start: datetime
     end: datetime

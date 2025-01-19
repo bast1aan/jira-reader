@@ -109,6 +109,7 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
         SECOND_DEVELOPER=a()
         ASSIGNED=a()
         WRITING_COMMENT=a()
+        CREATING_TICKET=a()
 
     StateChange = Literal[True] | Literal[False]
     to: Final[StateChange] = True
@@ -139,6 +140,31 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
                     field='comment',
                     fromString=comment.byDisplayName,
                     toString=''
+                ),
+            ]
+        )
+
+    def create_creating_items(created: datetime, created_by: str) -> Iterable[ComputeTicketHistory.Response.Item]:
+        return ComputeTicketHistory.Response.Item(
+            byEmailAddress='',
+            byDisplayName=created_by,
+            created=assume_current_timezone_for_naive_datetime(created),
+            actions=[
+                ComputeTicketHistory.Response.Item.Action(
+                    field='creating_ticket',
+                    fromString='',
+                    toString=created_by
+                ),
+            ]
+        ), ComputeTicketHistory.Response.Item(
+            byEmailAddress='',
+            byDisplayName=created_by,
+            created=assume_current_timezone_for_naive_datetime(created) + timedelta(minutes=15),
+            actions=[
+                ComputeTicketHistory.Response.Item.Action(
+                    field='creating_ticket',
+                    fromString=created_by,
+                    toString='',
                 ),
             ]
         )
@@ -221,6 +247,11 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
         state = State.WRITING_COMMENT
         timeline_type = Timeline.TYPE_WRITING_COMMENT
 
+    class CreatingTicketProcessor(SimpleProcessor):
+        field_name = 'creating_ticket'
+        state = State.CREATING_TICKET
+        timeline_type = Timeline.TYPE_CREATING_TICKET
+
     class StatusProcessor(Processor):
         field_name = 'status'
         _state_added: datetime | None = None
@@ -272,6 +303,7 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
 
     class CalculateTimelines(Iterable[Timeline]):
         processors = (
+            CreatingTicketProcessor,
             SecondDeveloperProcessor,
             AssigneeProcessor,
             StatusProcessor,
@@ -330,9 +362,18 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
                 }
             )
 
+            creating_items = create_creating_items(created=history.created, created_by=history.created_by)
+
             comment_items_iterators = (convert_comment_to_items_with_actions(comment) for comment in history.comments)
 
-            items = sorted(chain(history.items, *comment_items_iterators), key=lambda item: item.created)
+            items = sorted(
+                chain(
+                    creating_items,
+                    history.items,
+                    *comment_items_iterators,
+                ),
+                key=lambda item: item.created
+            )
             last_created = None
             for item in items:
                 last_created = item.created

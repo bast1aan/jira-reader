@@ -281,8 +281,8 @@ class TimelineTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
             issue_id=123,
             project_id=456,
             summary='XYZ Summary',
-            created=datetime.now() - timedelta(days=2),
-            created_by='Someone',
+            created=datetime.fromisoformat("2023-11-10T10:30:00"),
+            created_by='Bastiaan Welmers',
         ))
 
     async def asyncSetUp(self):
