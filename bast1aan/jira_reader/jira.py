@@ -58,6 +58,8 @@ class ComputeTicketHistory(JiraAction["ComputeTicketHistory.Response"]):
         issue_id: int
         project_id: int
         summary: str
+        created: datetime
+        created_by: str
 
     URL = ''
     mapper = JsonMapper({
@@ -86,7 +88,8 @@ class ComputeTicketHistory(JiraAction["ComputeTicketHistory.Response"]):
                     "created": into(Response.Comment).created,
                     "updated": into(Response.Comment).updated,
                 }, into(Response).comments]
-            }
+            },
+            'created': into(Response).created
         },
         "id": into(Response).issue_id,
         "fields": {
@@ -94,6 +97,9 @@ class ComputeTicketHistory(JiraAction["ComputeTicketHistory.Response"]):
                 "id": into(Response).project_id,
             },
             "summary": into(Response).summary,
+            "reporter": {
+                "displayName": into(Response).created_by
+            }
         },
     }, convert_null_to_empty_value=True)
 
@@ -319,6 +325,8 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str) -> Iter
                     'issue_id': self.issue_data.issue_id,
                     'project_id': self.issue_data.project_id,
                     'summary': self.issue_data.summary,
+                    'created': self.issue_data.created,
+                    'created_by': self.issue_data.created_by
                 }
             )
 

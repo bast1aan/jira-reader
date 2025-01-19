@@ -59,6 +59,8 @@ async def compute_history(issue: str) -> Response:
             issue_id=history.issue_id,
             project_id=history.project_id,
             summary=history.summary,
+            created=history.created,
+            created_by=history.created_by,
         )
         issue_data = await storage.save_issue_data(issue_data)
         created = True

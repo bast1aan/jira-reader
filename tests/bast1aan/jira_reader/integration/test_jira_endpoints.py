@@ -2,7 +2,7 @@ import asyncio
 import json
 import os
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import aiohttp.web
 
@@ -30,10 +30,11 @@ class JiraTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
 
         async def jira(request: aiohttp.web.Request) -> aiohttp.web.Response:
             self.requests.append(request)
-            return aiohttp.web.Response(
-                body=open(scriptdir('test_jira/test_request_ticket_history/test_input.json'), 'r').read(),
-                headers={'content-type': 'application/json'},
-            )
+            with open(scriptdir('test_jira/test_request_ticket_history/test_input.json'), 'r') as f:
+                return aiohttp.web.Response(
+                    body=f.read(),
+                    headers={'content-type': 'application/json'},
+                )
 
         jira_app = aiohttp.web.Application()
         jira_app.add_routes([aiohttp.web.get('/rest/api/3/issue/ABC-123', jira)])
@@ -279,7 +280,9 @@ class TimelineTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
             computed=datetime.now(),
             issue_id=123,
             project_id=456,
-            summary='XYZ Summary'
+            summary='XYZ Summary',
+            created=datetime.now() - timedelta(days=2),
+            created_by='Someone',
         ))
 
     async def asyncSetUp(self):

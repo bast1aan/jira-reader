@@ -62,6 +62,8 @@ class IssueData(Base):
     issue_id: Mapped[int] = mapped_column(Integer(), nullable=True)
     project_id: Mapped[int] = mapped_column(Integer(), nullable=True)
     summary: Mapped[str] = mapped_column(Text(), nullable=True)
+    created: Mapped[datetime] = mapped_column(DateTime(), nullable=True)
+    created_by: Mapped[str] = mapped_column(Text(), nullable=True)
 
     @property
     def entity(self) -> entities.IssueData:
@@ -72,6 +74,8 @@ class IssueData(Base):
             issue_id=self.issue_id,
             project_id=self.project_id,
             summary=self.summary,
+            created=self.created,
+            created_by=self.created_by,
         )
 
     @classmethod
@@ -83,6 +87,8 @@ class IssueData(Base):
             issue_id=entity.issue_id,
             project_id=entity.project_id,
             summary=entity.summary,
+            created=entity.created,
+            created_by=entity.created_by,
         )
 
 class SQLInitializer(ABC):

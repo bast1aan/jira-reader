@@ -1,5 +1,8 @@
 import json
 import unittest
+from datetime import datetime
+
+from dateutil.tz import tzoffset
 
 from bast1aan.jira_reader import async_executor, entities, json_mapper
 from bast1aan.jira_reader.async_executor import ExecutorException
@@ -77,6 +80,9 @@ class CalculateTimelinesTestCase(unittest.TestCase):
             issue_id = 123,
             project_id = 45,
             summary = 'Fix this',
+            created=datetime(2024, 1, 18, 11, 5, 19, 636000,
+                         tzinfo=tzoffset(None, 3600)),
+            created_by='Someone Else',
         )
         timelines = tuple(calculate_timelines(issue_data, input.display_name))
 

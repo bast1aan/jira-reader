@@ -164,7 +164,7 @@ def _convert_to_type(t: type[T], data: object) -> T:
     if is_dataclass(t):
         return asdataclass(t, data)
     elif t is datetime:
-        return datetime.fromisoformat(data)
+        return data if isinstance(data, datetime) else datetime.fromisoformat(data)
     elif get_origin(t) is list:
         type_in_list = get_args(t)[0]
         result = []

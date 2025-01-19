@@ -34,6 +34,8 @@ class IssueData:
     project_id: int
     summary: str
     computed: datetime | None = None
+    created: datetime | None = None
+    created_by: str | None = None
 
 @dataclass(frozen=True)
 class Timeline:
