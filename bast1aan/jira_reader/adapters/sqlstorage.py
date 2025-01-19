@@ -92,16 +92,9 @@ class IssueData(Base):
 
     @classmethod
     def from_entity(cls, entity: entities.IssueData) -> Self:
-        return cls(
-            issue=entity.issue,
-            computed=entity.computed or datetime_adapter.now(),
-            history=json_mapper.dumps(entity.history),
-            issue_id=entity.issue_id,
-            project_id=entity.project_id,
-            summary=entity.summary,
-            created=entity.created,
-            created_by=entity.created_by,
-        )
+        self = cls()
+        self.update_from_entity(entity)
+        return self
 
     def update_from_entity(self, entity: entities.IssueData) -> None:
         self.issue = entity.issue
@@ -112,7 +105,6 @@ class IssueData(Base):
         self.summary = entity.summary
         self.created = entity.created
         self.created_by = entity.created_by
-
 
 class SQLInitializer(ABC):
     @abstractmethod
