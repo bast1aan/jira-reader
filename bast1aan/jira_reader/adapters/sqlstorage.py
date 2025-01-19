@@ -1,5 +1,6 @@
 import json
 from abc import ABC, abstractmethod
+from dataclasses import InitVar, dataclass
 from datetime import datetime
 from functools import cached_property, reduce
 from typing import AsyncIterator
@@ -50,6 +51,16 @@ class Request(Base):
             result=json_mapper.dumps(entity.result)
         )
 
+@dataclass
+class SQLIssueDataEntity(entities.IssueData):
+    id: InitVar[int | None] = None
+
+    def __post_init__(self, id: int | None):
+        self.__id = id
+
+    def get_id(self) -> int | None:
+        return self.__id
+
 class IssueData(Base):
     __tablename__ = 'issue_data'
     __table_args__ = (
@@ -66,8 +77,9 @@ class IssueData(Base):
     created_by: Mapped[str] = mapped_column(Text(), nullable=True)
 
     @property
-    def entity(self) -> entities.IssueData:
-        return entities.IssueData(
+    def entity(self) -> SQLIssueDataEntity:
+        return SQLIssueDataEntity(
+            id=self.id,
             issue=self.issue,
             computed=self.computed,
             history=json.loads(self.history),
@@ -90,6 +102,17 @@ class IssueData(Base):
             created=entity.created,
             created_by=entity.created_by,
         )
+
+    def update_from_entity(self, entity: entities.IssueData) -> None:
+        self.issue = entity.issue
+        self.computed = entity.computed or datetime_adapter.now()
+        self.history = json_mapper.dumps(entity.history)
+        self.issue_id = entity.issue_id
+        self.project_id = entity.project_id
+        self.summary = entity.summary
+        self.created = entity.created
+        self.created_by = entity.created_by
+
 
 class SQLInitializer(ABC):
     @abstractmethod
@@ -130,14 +153,21 @@ class SQLStorage(Storage):
             model = await session.scalar(stmt)
             return model.entity if model else None
 
-    async def save_issue_data(self, data: entities.IssueData) -> entities.IssueData:
+    async def save_issue_data(self, data: entities.IssueData) -> SQLIssueDataEntity:
         async with self._async_session() as session:
-            data_model = IssueData.from_entity(data)
+            if isinstance(data, SQLIssueDataEntity) and (id_ := data.get_id()):
+                # update existing
+                data_model: IssueData = await session.scalar(
+                    select(IssueData).where(IssueData.id == id_)
+                )
+                data_model.update_from_entity(data)
+            else:
+                data_model = IssueData.from_entity(data)
             session.add(data_model)
             await session.commit()
             return data_model.entity
 
-    async def get_issue_datas(self) -> AsyncIterator[entities.IssueData]:
+    async def get_issue_datas(self) -> AsyncIterator[SQLIssueDataEntity]:
         async with self._async_session() as session:
             stmt = select(IssueData).order_by(IssueData.id.asc())
             async for model in await session.stream_scalars(stmt):
