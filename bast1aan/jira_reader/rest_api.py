@@ -40,17 +40,17 @@ def _result_response(result: JSONable, status: int = 200) -> Response:
 @app.post("/api/jira/compute-history/<issue>")
 async def compute_history(issue: str) -> Response:
     storage = await _sql_storage()
-    issue_data = await storage.get_issue_data(issue)
+    latest_issue_data = await storage.get_issue_data(issue)
     latest_request = await storage.get_latest_request(issue)
     created = False
-    if not issue_data or (latest_request and latest_request.requested > issue_data.computed):
+    if _history_is_outdated(latest_request, latest_issue_data):
         if not latest_request:
             return app.response_class('{"error": "Issue not found in database"}', mimetype="application/json",
                                       status=404)
         result = latest_request.result
         action = ComputeTicketHistory()
         history = action.get_response(result)
-        issue_data = IssueData(
+        latest_issue_data = IssueData(
             issue=issue,
             history={
                 "items": [asdict(item) for item in history.items],
@@ -62,9 +62,14 @@ async def compute_history(issue: str) -> Response:
             created=history.created,
             created_by=history.created_by,
         )
-        issue_data = await storage.save_issue_data(issue_data)
+        latest_issue_data = await storage.save_issue_data(latest_issue_data)
         created = True
-    return app.response_class(json_mapper.dumps(issue_data), status=201 if created else 200, mimetype="application/json")
+    return app.response_class(json_mapper.dumps(latest_issue_data), status=201 if created else 200, mimetype="application/json")
+
+def _history_is_outdated(latest_request: Request | None, latest_issue_data: IssueData | None) -> bool:
+    return not latest_issue_data or not latest_request or \
+        latest_request.requested > latest_issue_data.computed or \
+        latest_issue_data.created_by is None or latest_issue_data.created is None
 
 @app.route("/api/jira/timeline/<display_name>")
 async def timeline(display_name: str) -> Response:

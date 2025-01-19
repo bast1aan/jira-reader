@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import unittest
+from asyncio import sleep
 from datetime import datetime, timedelta
 
 import aiohttp.web
@@ -86,16 +87,41 @@ class JiraTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
             flask_task.cancel()
             os.unlink(flask_sock)
 
-        flask_task = setup_flask(flask_sock, now=datetime(year=2024, month=12, day=29, hour=19, minute=29, second=6))
+        flask_task = setup_flask(flask_sock, now=datetime(year=2024, month=12, day=29, hour=19, minute=29, second=44))
         await exists(flask_sock)
 
+        issue_data: entities.IssueData | None = None
         try:
             with self.subTest('Test a second time, the data should not be recreated in the db'):
                 async with self.post('http://flask/api/jira/compute-history/ABC-123', flask_sock) as response:
                     result = await response.read()
                     self.assertEqual(200, response.status)
-                    self.assertEqual(json.loads(expected), json.loads(result))
-                    self.assertEqual(1, len([_ async for _ in self.storage.get_issue_datas()]))
+                self.assertEqual(json.loads(expected), json.loads(result))
+                issue_datas = [issue_data async for issue_data in self.storage.get_issue_datas()]
+                self.assertEqual(1, len(issue_datas))
+                issue_data = issue_datas[0]
+        finally:
+            flask_task.cancel()
+            os.unlink(flask_sock)
+
+        await sleep(0.1)  # blergh, else the old server is apparantly used.
+
+        flask_task = setup_flask(flask_sock, now=datetime(year=2024, month=12, day=29, hour=19, minute=30, second=44))
+        await exists(flask_sock)
+
+        try:
+            with self.subTest('Test a third time, the data should be recreated in the db if created is null'):
+                assert issue_data is not None
+                issue_data.created = None
+                issue_data.created_by = None
+                await self.storage.save_issue_data(issue_data)
+
+                async with self.post('http://flask/api/jira/compute-history/ABC-123', flask_sock) as response:
+                    result = await response.read()
+                    self.assertEqual(201, response.status)
+
+                self.assertEqual({**json.loads(expected), 'computed': '2024-12-29T19:30:44'}, json.loads(result))
+                self.assertEqual(2, len([_ async for _ in self.storage.get_issue_datas()]))
         finally:
             flask_task.cancel()
             os.unlink(flask_sock)
