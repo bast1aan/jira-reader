@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, replace
 from datetime import datetime, timedelta
 from enum import Enum, auto as a
 from itertools import chain
@@ -429,4 +429,15 @@ def calculate_timelines(issue_data: IssueData, filter_display_name: str, from_:d
                 # if self._in_progress:
                 #     yield Timeline(self.issue_data.issue, self._in_progress, self._last_created, self.filter_display_name, '',
                 #                    Timeline.TYPE_IN_PROGESS)
-    return iter(CalculateTimelines(issue_data, filter_display_name))
+    calculate_timelines_iterator = iter(CalculateTimelines(issue_data, filter_display_name))
+    if from_:
+        calculate_timelines_iterator = limit_earliest_date(calculate_timelines_iterator, from_=from_)
+    return calculate_timelines_iterator
+
+def limit_earliest_date(timeline: Iterator[Timeline], from_: datetime) -> Iterator[Timeline]:
+    for item in timeline:
+        if item.end >= from_:
+            if item.start < from_:
+                yield replace(item, start=from_)
+            else:
+                yield item

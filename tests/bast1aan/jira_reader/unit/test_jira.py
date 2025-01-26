@@ -105,3 +105,26 @@ class CalculateTimelinesTestCase(unittest.TestCase):
 
         self.assertEqual(expected.expected, timelines)
 
+
+    def test_with_from_in_middle_of_ticket(self):
+        input = get_module_from_file('test_jira/calculate_timelines/input.py')
+        expected = get_module_from_file('test_jira/calculate_timelines_with_from/expected.py')
+        issue_data = entities.IssueData(
+            issue='ABC-123',
+            history=json.loads(json_mapper.dumps(input.input)),
+            issue_id = 123,
+            project_id = 45,
+            summary = 'Fix this',
+            created=datetime(2024, 1, 18, 11, 5, 19, 636000,
+                         tzinfo=tzoffset(None, 3600)),
+            created_by='Someone Else',
+        )
+        timelines = tuple(calculate_timelines(
+            issue_data,
+            input.display_name,
+            from_=datetime(2023, 11, 29, 17, 9, 17,
+                           tzinfo=tzoffset(None, 3600))
+        ))
+
+        self.assertEqual(expected.expected, timelines)
+
