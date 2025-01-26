@@ -91,10 +91,14 @@ async def timeline(display_name: str) -> Response:
 async def timeline_as_ical(display_name: str) -> Response:
     storage = await _sql_storage()
 
+    from_ = None
+    if 'from' in flask_request.args:
+        from_ = datetime.fromisoformat(flask_request.args['from'])
+
     events = [
         calendar.event_from_timeline(timeline)
-            async for issue_data in storage.get_recent_issue_datas()
-            for timeline in calculate_timelines(issue_data, display_name)
+            async for issue_data in storage.get_recent_issue_datas(from_=from_)
+            for timeline in calculate_timelines(issue_data, display_name, from_=from_)
     ]
 
     ical_body = to_ical(
