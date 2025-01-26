@@ -213,3 +213,37 @@ class TestIssueData(unittest.IsolatedAsyncioTestCase):
         result = [issue_data async for issue_data in self.storage.get_recent_issue_datas()]
 
         self.assertCountEqual([abc123_today, abc456_today], result)
+
+    async def test_save_issuedata_updates_existing_if_already_in_db(self) -> None:
+        now = datetime.now()
+        ent = entities.IssueData(
+            issue='ABC-123',
+            computed=now,
+            history=[
+                {'some': 'object'},
+            ],
+            issue_id=123,
+            project_id=45,
+            summary='We need to fix this',
+        )
+        await self.storage.save_issue_data(ent)
+
+        saved_ent = await self.storage.get_issue_data('ABC-123')
+
+        saved_ent.issue_id = 456
+
+        await self.storage.save_issue_data(saved_ent)
+
+        objs = [obj async for obj in self.storage.get_issue_datas()]
+
+        self.assertEqual([
+            entities.IssueData(
+                issue='ABC-123',
+                computed=now,
+                history=[
+                    {'some': 'object'},
+                ],
+                issue_id=456,
+                project_id=45,
+                summary='We need to fix this',
+            )], objs)
