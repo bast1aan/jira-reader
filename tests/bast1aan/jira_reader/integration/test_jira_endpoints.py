@@ -341,6 +341,25 @@ class TimelineTestCase(AsyncHttpRequestMixin, unittest.IsolatedAsyncioTestCase):
             flask_task.cancel()
             os.unlink(flask_sock)
 
+    async def test_timeline_with_from(self):
+        with open(scriptdir('test_jira/timeline/expected_with_from.json'), 'rb') as f:
+            expected = f.read()
+
+        flask_sock = os.path.join(self.tmpdir, 'flask.sock')
+
+        flask_task = setup_flask(flask_sock)
+        await exists(flask_sock)
+
+        try:
+            async with self.get('http://flask/api/jira/timeline/Bastiaan%20Welmers?from=2023-11-29T17:09:16%2b01:00', flask_sock) as response:
+                result = await response.read()
+                self.assertEqual(2, response.status // 100)
+                self.assertEqual(json.loads(expected), json.loads(result))
+        finally:
+            flask_task.cancel()
+            os.unlink(flask_sock)
+
+
     async def test_timeline_ical(self):
         with open(scriptdir('test_jira/timeline/expected.ics'), 'rb') as f:
             expected = f.read()

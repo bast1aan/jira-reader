@@ -1,7 +1,8 @@
 import json
 from dataclasses import asdict
+from datetime import datetime
 
-from flask import Flask, Response
+from flask import Flask, Response, request as flask_request
 
 from bast1aan.jira_reader import json_mapper, calendar
 from bast1aan.jira_reader.adapters.alembic.jira_reader import AlembicSQLInitializer
@@ -74,10 +75,15 @@ def _history_is_outdated(latest_request: Request | None, latest_issue_data: Issu
 @app.route("/api/jira/timeline/<display_name>")
 async def timeline(display_name: str) -> Response:
     storage = await _sql_storage()
+
+    from_ = None
+    if 'from' in flask_request.args:
+        from_ = datetime.fromisoformat(flask_request.args['from'])
+
     results = [
         timeline
-            async for issue_data in storage.get_recent_issue_datas()
-            for timeline in calculate_timelines(issue_data, display_name)
+            async for issue_data in storage.get_recent_issue_datas(from_=from_)
+            for timeline in calculate_timelines(issue_data, display_name, from_=from_)
     ]
     return app.response_class(json_mapper.dumps({'results': results}), mimetype="application/json")
 
