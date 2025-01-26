@@ -139,7 +139,7 @@ class SQLStorage(Storage):
             session.add(request_model)
             await session.commit()
 
-    async def get_issue_data(self, issue: str) -> entities.IssueData:
+    async def get_issue_data(self, issue: str) -> SQLIssueDataEntity:
         async with self._async_session() as session:
             stmt = select(IssueData).where(IssueData.issue.is_(issue)).order_by(IssueData.computed.desc()).limit(1)
             model = await session.scalar(stmt)

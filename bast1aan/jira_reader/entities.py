@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import AsyncIterator
 
+from bast1aan.jira_reader.overridable import overridable
+
 JSONable = list | dict | str | None
 
 class Storage(ABC):
@@ -26,6 +28,7 @@ class Request:
     result: JSONable
     requested: datetime | None = None
 
+@overridable
 @dataclass
 class IssueData:
     issue: str
