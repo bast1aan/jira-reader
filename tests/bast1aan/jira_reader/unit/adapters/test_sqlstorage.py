@@ -247,3 +247,50 @@ class TestIssueData(unittest.IsolatedAsyncioTestCase):
                 project_id=45,
                 summary='We need to fix this',
             )], objs)
+
+    async def test_get_recent_issue_datas_with_computed_filter(self) -> None:
+
+        now = datetime.now()
+        yesterday = now - timedelta(days=1)
+
+        abc99 = entities.IssueData(
+            issue='ABC-99',
+            computed=yesterday - timedelta(days=1),
+            history=[{'some': 'other'}],
+            issue_id=0,
+            project_id=0,
+            summary='long ago',
+        )
+
+        abc123_yesterday = entities.IssueData(
+            issue='ABC-123',
+            computed=yesterday,
+            history=[],
+            issue_id=0,
+            project_id=0,
+            summary='yesterday',
+        )
+        abc123_today = entities.IssueData(
+            issue='ABC-123',
+            computed=now,
+            history=[{'some': 'other'}],
+            issue_id=0,
+            project_id=0,
+            summary='today',
+        )
+        abc456_today = entities.IssueData(
+            issue='ABC-456',
+            computed=now,
+            history=[{'some': 'other'}],
+            issue_id=0,
+            project_id=0,
+            summary='today',
+        )
+        await self.storage.save_issue_data(abc99)
+        await self.storage.save_issue_data(abc123_yesterday)
+        await self.storage.save_issue_data(abc123_today)
+        await self.storage.save_issue_data(abc456_today)
+
+        result = [issue_data async for issue_data in self.storage.get_recent_issue_datas(from_=now - timedelta(hours=12))]
+
+        self.assertCountEqual([abc123_today, abc456_today], result)

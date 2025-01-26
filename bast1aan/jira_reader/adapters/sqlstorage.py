@@ -166,14 +166,20 @@ class SQLStorage(Storage):
                 model: IssueData
                 yield model.entity
 
-    async def get_recent_issue_datas(self) -> AsyncIterator[entities.IssueData]:
-        sql = """SELECT issue_data.* FROM issue_data 
+    async def get_recent_issue_datas(self, from_: datetime | None = None) -> AsyncIterator[entities.IssueData]:
+        where = ''
+        params = {}
+        if from_:
+            where = 'WHERE issue_data.computed >= :from_'
+            params['from_'] = from_
+        sql = f"""SELECT issue_data.* FROM issue_data 
         INNER JOIN (SELECT id, issue, MAX(computed) AS max_computed FROM issue_data GROUP BY issue) latest
             ON issue_data.id = latest.id
+        {where}    
         ORDER BY issue_data.id ASC"""
 
         async with self._async_session() as session:
             stmt = select(IssueData).from_statement(text(sql))
-            async for model in await session.stream_scalars(stmt):
+            async for model in await session.stream_scalars(stmt, params=params or None):
                 model: IssueData
                 yield model.entity
